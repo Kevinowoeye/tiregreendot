@@ -245,7 +245,7 @@ export interface AppSettings {
   maintenance_mode: boolean;
   lockdown_mode: boolean;
   email_notifications_enabled: boolean;
-  email_provider: 'resend' | 'gmail' | 'icloud';
+  email_provider: 'gmail' | 'smtp';
   theme_color: string;
   default_currency?: string;
   gold_card_banner_text?: string;

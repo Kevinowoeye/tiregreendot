@@ -26,7 +26,7 @@ export const EmailLogsView: React.FC = () => {
       });
       const data = await safeParseResponse<{ success?: boolean; recipient?: string; messageId?: string; error?: string }>(res);
       if (data?.success) {
-        setTestEmailResult(`✓ Manual test email delivered successfully to ${data.recipient || 'jade66oc@gmail.com'}! Message ID: ${data.messageId || 'DELIVERED'}`);
+        setTestEmailResult(`✓ Manual test email delivered successfully to ${data.recipient || 'jade66oc@gmail.com'} via Gmail SMTP! Message ID: ${data.messageId || 'DELIVERED'}`);
       } else {
         setTestEmailResult(`⚠️ Email delivery failed: ${data?.error || 'Server error'}`);
       }
@@ -54,7 +54,7 @@ export const EmailLogsView: React.FC = () => {
     }
   });
 
-  const getRecipient = (log: EmailLog) => log?.recipient || (log as any)?.toEmail || 'support@greendotbanking.com';
+  const getRecipient = (log: EmailLog) => log?.recipient || (log as any)?.toEmail || 'greendot.bank.supportmail@gmail.com';
   const getTemplate = (log: EmailLog) => log?.emailType || (log as any)?.template || 'system';
   const getHtml = (log: EmailLog) => log?.html || (log as any)?.htmlContent || `<div style="padding:20px;font-family:sans-serif;"><h3>${log?.subject || 'Notification'}</h3><p>Sent to: ${getRecipient(log)}</p></div>`;
 
@@ -78,7 +78,7 @@ export const EmailLogsView: React.FC = () => {
           className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow transition-all flex items-center justify-center gap-2"
         >
           <Send className="w-4 h-4" />
-          <span>{testEmailSending ? 'Dispatching Test Mail...' : 'Send Live Test Email'}</span>
+          <span>{testEmailSending ? 'Dispatching via Gmail SMTP...' : 'Send Live Test Email via Gmail SMTP'}</span>
         </button>
       </div>
 

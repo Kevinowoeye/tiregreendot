@@ -44,13 +44,13 @@ export const AdminEmailCenter: React.FC = () => {
       if (data?.success) {
         setTestEmailResult({
           success: true,
-          message: `✓ Test email successfully delivered via ${data.provider || 'Resend'} to ${data.recipient || testEmailRecipient}! (ID: ${data.messageId || 'SENT'})`,
+          message: `✓ Test email successfully delivered via ${data.provider || 'Gmail SMTP'} to ${data.recipient || testEmailRecipient}! (Message ID: ${data.messageId || 'SENT'})`,
         });
         confetti({ particleCount: 40, spread: 50, origin: { y: 0.5 } });
       } else {
         setTestEmailResult({
           success: false,
-          message: `Error: ${data?.error || 'Failed to dispatch test email'}`,
+          message: `Error: ${data?.error || 'Failed to dispatch test email via Gmail SMTP'}`,
         });
       }
     } catch (err: any) {
@@ -161,28 +161,28 @@ export const AdminEmailCenter: React.FC = () => {
         </div>
       </div>
 
-      {/* Resend Integration Status & Quick Live Test */}
+      {/* Gmail SMTP Integration Status & Quick Live Test */}
       <div className="bg-[#162032] border border-emerald-800/60 rounded-2xl p-4 sm:p-5 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold text-sm text-white">Resend API Key Connected</span>
+            <span className="font-bold text-sm text-white">Gmail SMTP Connected</span>
             <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-2 py-0.5 rounded-md font-semibold">
-              re_NUGE...84Ei
+              smtp.gmail.com:587 (TLS)
             </span>
             <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-700/60 px-2 py-0.5 rounded-md font-semibold">
-              greendotbanking.com (Verified)
+              Primary SMTP
             </span>
           </div>
           <span className="text-[11px] text-slate-400 font-mono">
-            Sender: Greendot Banking &lt;support@greendotbanking.com&gt;
+            Sender: Greendot Bank Support &lt;greendot.bank.supportmail@gmail.com&gt;
           </span>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
           <div className="flex-1 relative">
             <input
-              id="resend-test-email-input"
+              id="smtp-test-email-input"
               type="email"
               value={testEmailRecipient}
               onChange={(e) => setTestEmailRecipient(e.target.value)}
@@ -191,7 +191,7 @@ export const AdminEmailCenter: React.FC = () => {
             />
           </div>
           <button
-            id="resend-send-test-email-btn"
+            id="smtp-send-test-email-btn"
             type="button"
             onClick={handleSendQuickTestEmail}
             disabled={testEmailSending || !testEmailRecipient}
@@ -205,7 +205,7 @@ export const AdminEmailCenter: React.FC = () => {
             ) : (
               <>
                 <Send className="w-3.5 h-3.5" />
-                <span>Send Test Email via Resend</span>
+                <span>Send Test Email via Gmail SMTP</span>
               </>
             )}
           </button>

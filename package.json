@@ -24,8 +24,7 @@
     "nodemailer": "^10.0.10",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "recharts": "^3.10.1",
-    "resend": "^6.28.1"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",

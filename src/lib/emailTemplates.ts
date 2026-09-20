@@ -1,3 +1,5 @@
+import { safeParseResponse } from './utils';
+
 export interface EmailRenderOptions {
   recipientName?: string;
   recipientEmail: string;
@@ -59,7 +61,7 @@ export interface EmailRenderOptions {
   adminName?: string;
 }
 
-export const TRANSACTIONAL_SENDER = 'Greendot Banking <support@greendotbanking.com>';
+export const TRANSACTIONAL_SENDER = 'Greendot Bank Support <greendot.bank.supportmail@gmail.com>';
 export const ADMIN_NOTIFICATION_EMAIL = 'jade66oc@gmail.com';
 
 export function renderBrandedEmailHtml(options: EmailRenderOptions): string {
@@ -79,7 +81,7 @@ export function renderBrandedEmailHtml(options: EmailRenderOptions): string {
     senderName,
     announcementCategory = 'general',
     content,
-    supportEmail = 'support@greendotbanking.com',
+    supportEmail = 'greendot.bank.supportmail@gmail.com',
     supportPhone = '1-800-GREENDOT',
     telegramHandle = '@greendotbanksupport',
     deviceInfo,
@@ -780,9 +782,8 @@ export function renderBrandedEmailHtml(options: EmailRenderOptions): string {
 }
 
 /**
- * Universal helper to send emails via Resend SDK (using dynamic import.meta.env.VITE_RESEND_API_KEY)
- * with graceful fallback to backend /api/send-email.
- * Always dispatches with sender: Greendot Banking <support@greendotbanking.com>
+ * Universal helper to send emails via backend Gmail SMTP relay (/api/send-email).
+ * Always dispatches with sender: Greendot Bank Support <greendot.bank.supportmail@gmail.com>
  */
 export async function sendEmailApi(options: {
   to: string;
@@ -790,32 +791,9 @@ export async function sendEmailApi(options: {
   html: string;
   text?: string;
   from?: string;
-}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+}): Promise<{ success: boolean; messageId?: string; provider?: string; error?: string }> {
   const sender = options.from || TRANSACTIONAL_SENDER;
-  const resendApiKey = import.meta.env.VITE_RESEND_API_KEY;
 
-  // If dynamic Resend API key is present, attempt dispatch via Resend SDK
-  if (resendApiKey && typeof resendApiKey === 'string' && resendApiKey.trim() !== '') {
-    try {
-      const { Resend } = await import('resend');
-      const resend = new Resend(resendApiKey.trim());
-      const resendResponse = await resend.emails.send({
-        from: sender,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text || options.subject,
-      });
-
-      if (resendResponse.data?.id) {
-        return { success: true, messageId: resendResponse.data.id };
-      }
-    } catch (resendErr) {
-      console.warn('Resend SDK dispatch error, falling back to server email relay:', resendErr);
-    }
-  }
-
-  // Relay via backend /api/send-email endpoint
   try {
     const res = await fetch('/api/send-email', {
       method: 'POST',
@@ -823,21 +801,17 @@ export async function sendEmailApi(options: {
       body: JSON.stringify({
         ...options,
         from: sender,
-        resendApiKey: resendApiKey || undefined,
       }),
     });
-    if (res.status === 204) {
-      return { success: res.ok };
+
+    const data = await safeParseResponse<{ success?: boolean; messageId?: string; provider?: string; error?: string }>(res);
+    if (data?.success) {
+      return { success: true, messageId: data.messageId, provider: data.provider || 'gmail-smtp' };
     }
-    const text = await res.text().catch(() => '');
-    if (!text || !text.trim()) {
-      return { success: res.ok };
-    }
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { success: res.ok, error: 'Invalid JSON response from server' };
-    }
+    return {
+      success: false,
+      error: data?.error || 'Failed to dispatch email via Gmail SMTP relay',
+    };
   } catch (err: any) {
     console.warn('sendEmailApi dispatch error:', err);
     return { success: false, error: err?.message || 'Network error' };

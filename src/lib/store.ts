@@ -47,7 +47,7 @@ export interface BankState {
 
 const DEFAULT_SETTINGS: AppSettings = {
   bank_name: 'Greendot Bank',
-  support_email: 'support@greendotbanking.com',
+  support_email: 'greendot.bank.supportmail@gmail.com',
   support_phone: '1-800-GREENDOT',
   bank_address: '100 Financial Plaza, New York, NY 10005',
   routing_number: '122000496',
@@ -63,7 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   maintenance_mode: false,
   lockdown_mode: false,
   email_notifications_enabled: true,
-  email_provider: 'resend',
+  email_provider: 'gmail',
   theme_color: 'Emerald Green',
 };
 
