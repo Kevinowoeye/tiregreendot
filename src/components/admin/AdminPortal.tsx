@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import { CustomerProfile, Transaction, Loan, AppSettings, EmailLog, AccountTier, AccountStatus } from '../../types';
-import { formatCurrency, formatDate, safeParseResponse } from '../../lib/utils';
+import { formatCurrency, formatDate, safeParseResponse, copyToClipboard } from '../../lib/utils';
 import { GreendotLogo } from '../ui/GreendotLogo';
 import { AdminKYC } from './AdminKYC';
 import { AdminEmailCenter } from './AdminEmailCenter';
@@ -355,9 +355,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
   };
 
-  const handleCopyAutoLoginLink = (customer: CustomerProfile) => {
+  const handleCopyAutoLoginLink = async (customer: CustomerProfile) => {
     const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id || customer.customerId || '')}`;
-    navigator.clipboard.writeText(url);
+    await copyToClipboard(url);
     const displayName = customer?.fullName || (customer as any)?.name || 'Customer';
     setMutationFeedback(`✓ Auto-login link for ${displayName} copied to clipboard!`);
     confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });

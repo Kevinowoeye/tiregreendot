@@ -23,6 +23,7 @@ import {
   generateReference,
 } from './utils';
 import { renderBrandedEmailHtml } from './emailTemplates';
+import { safeLocalStorage } from './safeStorage';
 
 const STORAGE_KEY = 'greendot_bank_state_v1';
 
@@ -582,7 +583,7 @@ export const INITIAL_STATE: BankState = {
 // Storage helper functions
 export function loadState(): BankState {
   try {
-    const serialized = localStorage.getItem(STORAGE_KEY);
+    const serialized = safeLocalStorage.getItem(STORAGE_KEY);
     if (serialized) {
       const parsed = JSON.parse(serialized);
       // Ensure admin profile has the configured admin credentials
@@ -628,21 +629,25 @@ export function loadState(): BankState {
       };
     }
   } catch (err) {
-    console.error('Failed to load state from localStorage:', err);
+    console.error('Failed to load state from safeLocalStorage:', err);
   }
   return INITIAL_STATE;
 }
 
 export function saveState(state: BankState): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
-    console.error('Failed to save state to localStorage:', err);
+    console.error('Failed to save state to safeLocalStorage:', err);
   }
 }
 
 export function resetState(): BankState {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    safeLocalStorage.removeItem(STORAGE_KEY);
+  } catch (err) {
+    console.warn('Failed to remove state item:', err);
+  }
   saveState(INITIAL_STATE);
   return INITIAL_STATE;
 }

@@ -12,8 +12,10 @@ export function formatCurrency(amount: number, currency = 'USD'): string {
 }
 
 export function formatDate(dateString: string): string {
+  if (!dateString) return '—';
   try {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
@@ -22,20 +24,22 @@ export function formatDate(dateString: string): string {
       minute: '2-digit',
     }).format(date);
   } catch {
-    return dateString;
+    return dateString || '—';
   }
 }
 
 export function formatShortDate(dateString: string): string {
+  if (!dateString) return '—';
   try {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     }).format(date);
   } catch {
-    return dateString;
+    return dateString || '—';
   }
 }
 
@@ -96,5 +100,41 @@ export async function safeParseResponse<T = any>(res: Response): Promise<T> {
     return JSON.parse(text) as T;
   } catch (err: any) {
     return { success: res.ok, error: err?.message || 'Empty or invalid response payload' } as unknown as T;
+  }
+}
+
+/**
+ * Robust Cross-Browser Clipboard Helper
+ * Works across Chrome, Safari, Firefox, Edge, Android Chrome, and iOS Safari,
+ * even when navigator.clipboard is blocked by iframe or browser permissions.
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // navigator.clipboard was denied or restricted, fall through to fallback
+  }
+
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.opacity = '0';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.warn('Fallback clipboard copy failed:', err);
+    return false;
   }
 }

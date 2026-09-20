@@ -139,17 +139,17 @@ const BankAppInner: React.FC = () => {
       )}
 
       {/* ================= LOCKDOWN MODE INTERCEPTOR ================= */}
-      {page !== 'admin-access' && state.appSettings.lockdown_mode && currentRole !== 'admin' && (
+      {page !== 'admin-access' && state?.appSettings?.lockdown_mode && currentRole !== 'admin' && (
         <LockdownPage onBypass={() => setPage('admin-access')} />
       )}
 
       {/* ================= MAINTENANCE MODE INTERCEPTOR ================= */}
-      {page !== 'admin-access' && !state.appSettings.lockdown_mode && state.appSettings.maintenance_mode && currentRole !== 'admin' && (
+      {page !== 'admin-access' && !state?.appSettings?.lockdown_mode && state?.appSettings?.maintenance_mode && currentRole !== 'admin' && (
         <MaintenancePage onBypass={() => setPage('admin-access')} />
       )}
 
       {/* ================= PUBLIC FLOW ================= */}
-      {page !== 'admin-access' && (!state.appSettings.lockdown_mode && !state.appSettings.maintenance_mode || currentRole === 'admin') && page !== 'dashboard' && page !== 'admin' && (
+      {page !== 'admin-access' && (!state?.appSettings?.lockdown_mode && !state?.appSettings?.maintenance_mode || currentRole === 'admin') && page !== 'dashboard' && page !== 'admin' && (
         <>
           <PublicNavbar
             currentPage={page}
@@ -205,7 +205,7 @@ const BankAppInner: React.FC = () => {
       )}
 
       {/* ================= CUSTOMER DASHBOARD FLOW ================= */}
-      {page !== 'admin-access' && (!state.appSettings.lockdown_mode && !state.appSettings.maintenance_mode || currentRole === 'admin') && page === 'dashboard' && currentUser && (
+      {page !== 'admin-access' && (!state?.appSettings?.lockdown_mode && !state?.appSettings?.maintenance_mode || currentRole === 'admin') && page === 'dashboard' && currentUser && (
         <DashboardLayout
           activeTab={dashboardTab}
           onTabChange={(t) => setDashboardTab(t)}
@@ -250,7 +250,7 @@ const BankAppInner: React.FC = () => {
       )}
 
       {/* Fallback if user navigates to dashboard but is not logged in */}
-      {page !== 'admin-access' && (!state.appSettings.lockdown_mode && !state.appSettings.maintenance_mode || currentRole === 'admin') && page === 'dashboard' && !currentUser && (
+      {page !== 'admin-access' && (!state?.appSettings?.lockdown_mode && !state?.appSettings?.maintenance_mode || currentRole === 'admin') && page === 'dashboard' && !currentUser && (
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center space-y-4 max-w-sm">
             <Lock className="w-12 h-12 text-emerald-700 mx-auto" />

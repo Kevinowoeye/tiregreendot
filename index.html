@@ -3,16 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Greendot Bank — Modern & Secure Online Banking</title>
-    <meta name="description" content="Next-generation secure online banking platform for greendotbanking.com with customer dashboard, transfers, debit cards, loans, and admin management portal." />
+    <title>Tire Greendot main — Modern & Secure Online Banking</title>
+    <meta name="description" content="Next-generation secure online banking platform with customer dashboard, transfers, debit cards, loans, and admin management portal." />
     <link rel="canonical" href="https://greendotbanking.com/" />
-    <meta property="og:title" content="Greendot Bank — Modern & Secure Online Banking" />
-    <meta property="og:description" content="Next-generation secure online banking platform for greendotbanking.com with customer dashboard, transfers, debit cards, loans, and admin management portal." />
+    <meta property="og:title" content="Tire Greendot main — Modern & Secure Online Banking" />
+    <meta property="og:description" content="Next-generation secure online banking platform with customer dashboard, transfers, debit cards, loans, and admin management portal." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://greendotbanking.com/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:domain" content="greendotbanking.com" />
     <meta name="twitter:url" content="https://greendotbanking.com/" />
+
+    <!-- Cross-Browser Self-Healing & Stale Cache/ServiceWorker Recovery -->
+    <script>
+      (function() {
+        // Prevent broken or stale development service workers from blocking Chrome/Edge/Firefox
+        if ('serviceWorker' in navigator) {
+          try {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                var reg = registrations[i];
+                // Unregister dev-sw or broken workers that intercept localhost or cloud run dev domains
+                if (reg.active && (reg.active.scriptURL.includes('dev-sw') || window.location.hostname.includes('run.app') || window.location.hostname === 'localhost')) {
+                  reg.unregister().then(function(unregistered) {
+                    if (unregistered) console.log('Cleaned stale development service worker for smooth browser loading.');
+                  });
+                }
+              }
+            }).catch(function() {});
+          } catch(e) {}
+        }
+      })();
+    </script>
 
     <!-- PWA & Mobile Web App Meta Tags -->
     <meta name="theme-color" content="#052e16" />

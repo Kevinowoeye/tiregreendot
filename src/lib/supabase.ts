@@ -17,6 +17,7 @@ import {
   Announcement,
   EmailLog,
 } from '../types';
+import { safeLocalStorage } from './safeStorage';
 
 export const SUPABASE_URL =
   import.meta.env.VITE_SUPABASE_URL ||
@@ -37,6 +38,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    storage: safeLocalStorage,
   },
 });
 

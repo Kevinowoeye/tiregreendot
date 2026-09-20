@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { GreendotLogo } from './GreendotLogo';
+import { safeSessionStorage } from '../../lib/safeStorage';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -41,20 +42,28 @@ export const PwaInstallPrompt: React.FC = () => {
 
     // 3. Listen for Chromium/Android install prompt
     const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Auto-show unobtrusive banner after 3 seconds if not dismissed
-      const dismissed = sessionStorage.getItem('pwa_prompt_dismissed');
-      if (!dismissed) {
-        setTimeout(() => setIsOpen(true), 3000);
+      try {
+        e.preventDefault();
+        setDeferredPrompt(e as BeforeInstallPromptEvent);
+        // Auto-show unobtrusive banner after 3 seconds if not dismissed
+        const dismissed = safeSessionStorage.getItem('pwa_prompt_dismissed');
+        if (!dismissed) {
+          setTimeout(() => setIsOpen(true), 3000);
+        }
+      } catch (err) {
+        console.warn('Chromium beforeinstallprompt error intercepted:', err);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
     // Show for iOS users after brief delay if not dismissed
-    if (isIosDevice && !sessionStorage.getItem('pwa_prompt_dismissed')) {
-      setTimeout(() => setIsOpen(true), 3000);
+    try {
+      if (isIosDevice && !safeSessionStorage.getItem('pwa_prompt_dismissed')) {
+        setTimeout(() => setIsOpen(true), 3000);
+      }
+    } catch {
+      // ignore
     }
 
     return () => {
@@ -63,24 +72,26 @@ export const PwaInstallPrompt: React.FC = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-        setIsOpen(false);
+    try {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setDeferredPrompt(null);
+          setIsOpen(false);
+        }
+      } else {
+        setShowIosGuide(true);
       }
-    } else if (isIOS) {
-      setShowIosGuide(true);
-    } else {
-      // Fallback guide
+    } catch (err) {
+      console.warn('Install prompt error:', err);
       setShowIosGuide(true);
     }
   };
 
   const handleDismiss = () => {
     setIsOpen(false);
-    sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+    safeSessionStorage.setItem('pwa_prompt_dismissed', 'true');
   };
 
   if (isStandalone || (!isOpen && !showIosGuide)) {

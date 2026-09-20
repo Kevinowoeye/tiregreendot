@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import confetti from 'canvas-confetti';
+import { copyToClipboard } from '../../lib/utils';
 
 interface ExportDeployModalProps {
   isOpen: boolean;
@@ -31,8 +32,8 @@ export const ExportDeployModal: React.FC<ExportDeployModalProps> = ({ isOpen, on
 
   if (!isOpen) return null;
 
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async (id: string, text: string) => {
+    await copyToClipboard(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2500);
   };
