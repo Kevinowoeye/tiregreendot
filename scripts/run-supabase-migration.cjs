@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   "kycStatus" TEXT DEFAULT 'pending',
   "activationCode" TEXT,
   "activatedAt" TEXT,
-  "hasVisaCard" BOOLEAN DEFAULT true,
+  "hasVisaCard" BOOLEAN DEFAULT false,
   "cardMinLoad" NUMERIC DEFAULT 200,
   "transactionPinHash" TEXT,
   "accountTier" TEXT DEFAULT 'tier_1',

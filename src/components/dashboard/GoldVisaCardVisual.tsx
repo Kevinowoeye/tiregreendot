@@ -18,13 +18,15 @@ export const GoldVisaCardVisual: React.FC<GoldVisaCardVisualProps> = ({
 
   if (!card) {
     return (
-      <div className="p-8 border-2 border-dashed border-emerald-900/20 rounded-3xl bg-emerald-50/40 text-center space-y-3 backdrop-blur-sm">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/20 to-amber-600/30 text-amber-800 flex items-center justify-center mx-auto shadow-inner border border-amber-300/40">
+      <div className="p-8 border-2 border-dashed border-slate-300 rounded-3xl bg-slate-50/80 text-center space-y-3">
+        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center mx-auto border border-amber-300/40">
           <Lock className="w-6 h-6 text-amber-700" />
         </div>
-        <div className="font-display font-bold text-slate-900 text-base">No Debit Card Provisioned</div>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-          You currently have no active debit card. Apply for a Gold Visa card or link your card to unlock instant contactless global payments.
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+          <span>No Active Card / Unissued</span>
+        </div>
+        <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed font-medium">
+          You do not have an active Visa Debit Card yet. Contact support or wait for admin authorization.
         </p>
       </div>
     );

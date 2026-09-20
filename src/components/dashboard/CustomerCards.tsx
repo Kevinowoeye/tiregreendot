@@ -17,7 +17,9 @@ import { GoldVisaCardVisual } from './GoldVisaCardVisual';
 import { formatCurrency } from '../../lib/utils';
 import confetti from 'canvas-confetti';
 
-export const CustomerCards: React.FC = () => {
+export const CustomerCards: React.FC<{ onTabChange?: (tab: string) => void }> = ({
+  onTabChange,
+}) => {
   const { currentUser, toggleCardFreeze } = useBank();
   const [dailyLimit, setDailyLimit] = useState(2500);
   const [intlEnabled, setIntlEnabled] = useState(true);
@@ -27,11 +29,93 @@ export const CustomerCards: React.FC = () => {
 
   if (!currentUser) return null;
   const card = currentUser.debitCard;
+  const hasCard = Boolean(currentUser.hasVisaCard && card);
 
   const handleSavePreferences = () => {
     setSavedFeedback('Card limits and security preferences updated successfully.');
     setTimeout(() => setSavedFeedback(null), 3500);
   };
+
+  if (!hasCard) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-wider">
+              <CreditCard className="w-4 h-4 text-slate-400" />
+              <span>Cardholder Services</span>
+            </div>
+            <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Debit &amp; Virtual Cards
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Real-time card controls, contactless NFC wallets, and international payment authorization.
+            </p>
+          </div>
+        </div>
+
+        {/* Explicit Unissued Empty State */}
+        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-xl shadow-slate-100/80 text-center space-y-6">
+          <div className="w-20 h-20 rounded-3xl bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center mx-auto shadow-inner">
+            <CreditCard className="w-10 h-10 text-slate-400" />
+          </div>
+
+          <div className="space-y-2 max-w-lg mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>No Active Card / Unissued</span>
+            </div>
+
+            <h3 className="font-display text-xl sm:text-2xl font-black text-slate-900">
+              No Active Card / Unissued
+            </h3>
+
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
+              You do not have an active Visa Debit Card yet. Contact support or wait for admin authorization.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left pt-4 border-t border-slate-100">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Account Status</div>
+              <div className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Active ({currentUser.accountTier?.toUpperCase() || 'TIER 1'})</span>
+              </div>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Card Status</div>
+              <div className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Unprovisioned / Inactive</span>
+              </div>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Authorization</div>
+              <div className="text-xs font-bold text-slate-700">
+                <span>Requires Admin Issuance</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => onTabChange?.('support')}
+              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+            >
+              Contact Support
+            </button>
+            <button
+              onClick={() => onTabChange?.('how-to-get-card')}
+              className="w-full sm:w-auto px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+            >
+              How to Request Card &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl">

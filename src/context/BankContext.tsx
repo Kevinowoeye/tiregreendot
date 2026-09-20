@@ -272,11 +272,12 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const primaryAccount = currentAccounts[0] || null;
   const totalBalance = currentAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
-  const primaryCard = currentCards[0] || null;
+  const primaryCard = (rawUser && rawUser.hasVisaCard && currentCards.length > 0) ? currentCards[0] : null;
 
   const currentUser: Profile | null = rawUser
     ? {
         ...rawUser,
+        hasVisaCard: Boolean(rawUser.hasVisaCard && primaryCard),
         balance: primaryAccount?.balance ?? totalBalance,
         totalBalance,
         debitCard: primaryCard,
@@ -507,7 +508,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
               activatedAt: now,
               accountTier: p.accountTier || 'tier_1',
               transactionPinHash: p.transactionPinHash || '1234',
-              hasVisaCard: true,
+              hasVisaCard: p.hasVisaCard ?? false,
             }
           : p
       ),
@@ -544,7 +545,6 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const userId = 'cust-' + Date.now();
     const accountId = 'acc-' + Date.now();
-    const cardId = 'card-' + Date.now();
     const customerId = generateCustomerId();
     const accountNumber = generateAccountNumber();
     const now = new Date().toISOString();
@@ -565,7 +565,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       twoFactorEnabled: false,
       kycStatus: 'verified',
       transactionPinHash: '1234', // default 1234
-      hasVisaCard: data.hasVisaCard ?? false,
+      hasVisaCard: false, // Strictly NO automatic debit cards upon account creation
       cardMinLoad: 200,
       accountTier: data.accountTier || 'tier_1',
       upgradeMinLoad: data.upgradeMinLoad || 800,
@@ -584,22 +584,6 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'active', // Immediately active
       createdAt: now,
       updatedAt: now,
-    };
-
-    const newDebitCard: DebitCard = {
-      id: cardId,
-      userId,
-      accountId,
-      cardNumber: '4532 ' + Math.floor(1000 + Math.random() * 9000) + ' ' + Math.floor(1000 + Math.random() * 9000) + ' ' + Math.floor(1000 + Math.random() * 9000),
-      cardHolder: (data.fullName || data.email || 'VALUED CUSTOMER').toUpperCase(),
-      expiryMonth: (new Date().getMonth() + 1),
-      expiryYear: new Date().getFullYear() + 4,
-      cvv: String(Math.floor(100 + Math.random() * 900)),
-      cardType: 'visa',
-      status: 'active',
-      pinSet: true,
-      dailyLimit: 2500,
-      createdAt: now,
     };
 
     // Render Welcome Branded Email with Dynamic Magic Link & Site URL
@@ -698,9 +682,6 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSupabaseConfigured) {
       supabaseDb.upsertRecord('profiles', newProfile).catch(() => {});
       supabaseDb.upsertRecord('accounts', newAccount).catch(() => {});
-      if (data.hasVisaCard !== false) {
-        supabaseDb.upsertRecord('debit_cards', newDebitCard).catch(() => {});
-      }
       if (initialTxn) {
         supabaseDb.upsertRecord('transactions', initialTxn).catch(() => {});
       }
@@ -713,7 +694,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profiles: [...prev.profiles, newProfile],
       accounts: [...prev.accounts, newAccount],
       transactions: initialTxn ? [initialTxn, ...prev.transactions] : prev.transactions,
-      debitCards: data.hasVisaCard ? [...prev.debitCards, newDebitCard] : prev.debitCards,
+      debitCards: prev.debitCards,
       emailLogs: [newEmailLog, ...prev.emailLogs],
       auditLogs: [audit, ...prev.auditLogs],
     }));

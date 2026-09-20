@@ -201,7 +201,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
   };
 
-  // New customer creation form ($0 deposit allowed)
+  // New customer creation form ($0 deposit allowed, strictly NO automatic debit card)
   const [newCustForm, setNewCustForm] = useState({
     fullName: '',
     email: '',
@@ -209,7 +209,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     accountType: 'checking' as 'checking' | 'savings' | 'investment',
     initialDeposit: 0,
     accountTier: 'tier_1' as 'tier_0' | 'tier_1' | 'tier_2' | 'tier_3',
-    hasVisaCard: true,
+    hasVisaCard: false,
   });
   const [newCustSuccess, setNewCustSuccess] = useState<string | null>(null);
 
@@ -603,7 +603,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const res = createCustomer(newCustForm);
     if (res.success) {
       setNewCustSuccess(
-        `Customer profile created: ${res.customer.fullName} (#${res.customer.customerId}). Account is immediately ACTIVE with starting balance $${Number(newCustForm.initialDeposit || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}. Branded credentials and magic sign-in link dispatched to ${res.customer.email}.`
+        `Customer profile created: ${res.customer.fullName} (#${res.customer.customerId}). Account is immediately ACTIVE with starting balance $${Number(newCustForm.initialDeposit || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}. Card status: Unissued (requires manual admin issuance). Login credentials dispatched to ${res.customer.email}.`
       );
       setNewCustForm({
         fullName: '',
@@ -612,7 +612,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         accountType: 'checking',
         initialDeposit: 0,
         accountTier: 'tier_1',
-        hasVisaCard: true,
+        hasVisaCard: false,
       });
       confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
     } else {
@@ -1154,7 +1154,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {filteredCustomers.map((c) => (
+                    {filteredCustomers.map((c) => {
+                      const cCard = (state.debitCards || []).find(
+                        (cd) => cd.userId === c.userId || cd.userId === c.id
+                      );
+                      const cHasCard = Boolean(c.hasVisaCard && cCard);
+
+                      return (
                       <tr key={c.customerId || c.id} className="hover:bg-slate-800/30 transition-colors">
                         <td className="py-4 px-5 font-bold text-white">
                           <div className="font-semibold text-slate-100">{c.fullName || (c as any)?.name || 'Valued Customer'}</div>
@@ -1186,13 +1192,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </td>
 
                         <td className="py-4 px-5">
-                          {c.debitCard ? (
-                            <span className="text-amber-300 font-black text-[11px] flex items-center gap-1.5 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20 w-max">
-                              <CreditCard className="w-3.5 h-3.5 text-amber-400" />
-                              <span>{c.debitCard.status || 'active'}</span>
-                            </span>
+                          {cHasCard && cCard ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-300 font-black text-[11px] flex items-center gap-1.5 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20 w-max">
+                                <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{cCard.status || 'active'}</span>
+                              </span>
+                              <button
+                                onClick={() => openIssueCardModal(c)}
+                                className="text-[10px] text-amber-400 hover:text-amber-300 underline font-semibold"
+                                title="Manage / Reissue card"
+                              >
+                                Reissue
+                              </button>
+                            </div>
                           ) : (
-                            <span className="text-slate-500 text-[11px]">Unprovisioned</span>
+                            <button
+                              onClick={() => openIssueCardModal(c)}
+                              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 shadow-xs active:scale-95"
+                              title="Manually issue Gold Visa Card"
+                            >
+                              <CreditCard className="w-3 h-3 text-amber-400" />
+                              <span>+ Issue Card</span>
+                            </button>
                           )}
                         </td>
 
@@ -1207,6 +1229,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
                             >
                               Manage
+                            </button>
+                            <button
+                              onClick={() => openIssueCardModal(c)}
+                              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                              title={cHasCard ? 'Reissue / Configure Card' : 'Manual Issue Gold Visa Card'}
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              <span>{cHasCard ? 'Card' : 'Issue Card'}</span>
                             </button>
                             <button
                               onClick={() => openFundModal(c)}
@@ -1225,7 +1255,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

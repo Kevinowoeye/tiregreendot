@@ -50,7 +50,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   if (!currentUser) return null;
 
   const firstName = currentUser.fullName.split(' ')[0];
-  const userCard = currentUser.debitCard;
+  const userCard = currentUser.hasVisaCard ? currentUser.debitCard : null;
   const settings = state.appSettings;
 
   // Calculate Inflow & Outflow for current customer

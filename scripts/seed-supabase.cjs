@@ -30,7 +30,7 @@ async function seed() {
   const profilesSql = `
     INSERT INTO public.profiles (id, "userId", role, "fullName", email, password, phone, "customerId", status, "twoFactorEnabled", "kycStatus", "hasVisaCard", "cardMinLoad", "transactionPinHash", "accountTier", "upgradeMinLoad", address, city, country)
     VALUES 
-    ('admin-1', 'admin-1', 'admin', 'Kevin Owoeye', 'kevinowoeye@gmail.com', 'Personal@01', '+1 (800) 473-3636', 'ADMIN-0001', 'active', true, 'verified', true, 200, '1234', 'tier_3', 800, 'Greendot Headquarters', 'New York, NY 10001', 'United States'),
+    ('admin-1', 'admin-1', 'admin', 'Kevin Owoeye', 'kevinowoeye@gmail.com', 'Personal@01', '+1 (800) 473-3636', 'ADMIN-0001', 'active', true, 'verified', false, 200, '1234', 'tier_3', 800, 'Greendot Headquarters', 'New York, NY 10001', 'United States'),
     ('cust-1', 'cust-1', 'customer', 'Sarah Mitchell', 'sarah.mitchell@greendot.com', 'Customer@01', '+1 (555) 234-5678', 'CUST-849201', 'active', true, 'verified', true, 200, '1234', 'tier_1', 800, '742 Evergreen Terrace', 'New York, NY 10001', 'United States'),
     ('cust-2', 'cust-2', 'customer', 'Marcus Vance', 'marcus.vance@example.com', 'Customer@01', '+1 (555) 876-5432', 'CUST-910244', 'pending_activation', false, 'pending', false, 200, '1234', 'tier_0', 800, '124 Conch Street', 'Los Angeles, CA 90001', 'United States'),
     ('cust-3', 'cust-3', 'customer', 'Elena Rostova', 'elena.rostova@example.com', 'Customer@01', '+1 (555) 345-6789', 'CUST-338291', 'active', true, 'verified', true, 200, '1234', 'tier_2', 800, '405 Lexington Ave', 'Miami, FL 33101', 'United States')

@@ -223,7 +223,9 @@ const BankAppInner: React.FC = () => {
           )}
           {dashboardTab === 'transactions' && <CustomerTransactions />}
           {dashboardTab === 'statements' && <CustomerStatements />}
-          {dashboardTab === 'cards' && <CustomerCards />}
+          {dashboardTab === 'cards' && (
+            <CustomerCards onTabChange={(t) => setDashboardTab(t as any)} />
+          )}
           {dashboardTab === 'beneficiaries' && (
             <CustomerBeneficiaries onTabChange={(t) => setDashboardTab(t)} />
           )}
