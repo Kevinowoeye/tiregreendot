@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import { CustomerProfile, Transaction, Loan, AppSettings, EmailLog, AccountTier, AccountStatus } from '../../types';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, safeParseResponse } from '../../lib/utils';
 import { GreendotLogo } from '../ui/GreendotLogo';
 import { AdminKYC } from './AdminKYC';
 import { AdminEmailCenter } from './AdminEmailCenter';
@@ -187,12 +187,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: 'jade66oc@gmail.com' }),
       });
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       if (data.success) {
-        setTestEmailResult(`✓ Test email successfully sent to ${data.recipient}! Message ID: ${data.messageId}`);
+        setTestEmailResult(`✓ Test email successfully sent to ${data.recipient || 'jade66oc@gmail.com'}! Message ID: ${data.messageId || 'N/A'}`);
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
       } else {
-        setTestEmailResult(`✗ Failed to send test email: ${data.error}`);
+        setTestEmailResult(`✗ Failed to send test email: ${data.error || 'Server returned error'}`);
       }
     } catch (err: any) {
       setTestEmailResult(`✗ Error: ${err.message || 'Network error'}`);
@@ -271,10 +271,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const openIssueCardModal = (c: CustomerProfile) => {
     setIssueCardTargetCustomer(c);
     const existingCard = (state.debitCards || []).find((dc) => dc.userId === c.userId);
+    const customerFullName = (c?.fullName || (c as any)?.name || c?.email || 'VALUED CUSTOMER').toUpperCase();
     if (existingCard) {
       setIssueCardForm({
         cardNumber: existingCard.cardNumber,
-        cardHolder: existingCard.cardHolder || c.fullName.toUpperCase(),
+        cardHolder: existingCard.cardHolder || customerFullName,
         expiryMonth: String(existingCard.expiryMonth || '12'),
         expiryYear: String(existingCard.expiryYear || '29'),
         cvv: existingCard.cvv || '821',
@@ -287,7 +288,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       const randMid2 = Math.floor(1000 + Math.random() * 9000);
       setIssueCardForm({
         cardNumber: `4532 ${randMid1} ${randMid2} ${randFour}`,
-        cardHolder: c.fullName.toUpperCase(),
+        cardHolder: customerFullName,
         expiryMonth: '12',
         expiryYear: '29',
         cvv: String(Math.floor(100 + Math.random() * 900)),
@@ -301,9 +302,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const handleIssueCardSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!issueCardTargetCustomer) return;
+    const targetName = (issueCardTargetCustomer?.fullName || (issueCardTargetCustomer as any)?.name || 'Valued Customer');
     issueDebitCard(issueCardTargetCustomer.userId, undefined, {
       cardNumber: issueCardForm.cardNumber,
-      cardHolder: issueCardForm.cardHolder.trim() || issueCardTargetCustomer.fullName.toUpperCase(),
+      cardHolder: issueCardForm.cardHolder.trim() || targetName.toUpperCase(),
       expiryMonth: parseInt(issueCardForm.expiryMonth, 10) || 12,
       expiryYear: parseInt(issueCardForm.expiryYear, 10) || 29,
       cvv: issueCardForm.cvv,
@@ -311,7 +313,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       initialBalance: Number(issueCardForm.initialBalance) || 0,
     });
     confetti({ particleCount: 70, spread: 60, origin: { y: 0.5 } });
-    setMutationFeedback(`✓ Gold Visa Card successfully issued and customized for ${issueCardTargetCustomer.fullName}!`);
+    setMutationFeedback(`✓ Gold Visa Card successfully issued and customized for ${targetName}!`);
     setTimeout(() => setMutationFeedback(null), 5000);
     setIssueCardModalOpen(false);
 
@@ -336,11 +338,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setTimeout(() => setMutationFeedback(null), 5000);
   };
 
-  const filteredCustomers = state.profiles.filter(
+  const filteredCustomers = (state.profiles || []).filter(
     (p) =>
-      p.fullName.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      p.email.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      p.customerId.toLowerCase().includes(customerSearch.toLowerCase())
+      (p?.fullName || (p as any)?.name || p?.email || '').toLowerCase().includes((customerSearch || '').toLowerCase()) ||
+      (p?.email || '').toLowerCase().includes((customerSearch || '').toLowerCase()) ||
+      (p?.customerId || '').toLowerCase().includes((customerSearch || '').toLowerCase())
   );
 
   const handleAdjustBalance = (customerId: string) => {
@@ -354,20 +356,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleCopyAutoLoginLink = (customer: CustomerProfile) => {
-    const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id)}`;
+    const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id || customer.customerId || '')}`;
     navigator.clipboard.writeText(url);
-    setMutationFeedback(`✓ Auto-login link for ${customer.fullName} copied to clipboard!`);
+    const displayName = customer?.fullName || (customer as any)?.name || 'Customer';
+    setMutationFeedback(`✓ Auto-login link for ${displayName} copied to clipboard!`);
     confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
     setTimeout(() => setMutationFeedback(null), 4000);
   };
 
   const handleSendAutoLoginEmail = async (customer: CustomerProfile) => {
-    const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id)}`;
+    const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id || customer.customerId || '')}`;
+    const custName = customer?.fullName || (customer as any)?.name || customer?.email || 'Valued Customer';
     const emailHtml = `
       <div style="font-family:sans-serif; padding:24px; background:#f4f9f5; border-radius:16px; border:1px solid #22c55e; max-width:600px; margin:0 auto;">
         <h2 style="color:#0f3d1d; margin-top:0;">Your Secure Auto-Login Access Link</h2>
         <p style="color:#334155; font-size:15px; line-height:1.6;">
-          Hello <strong>${customer.fullName}</strong>,<br/><br/>
+          Hello <strong>${custName}</strong>,<br/><br/>
           You have requested or been issued a secure one-click auto-login link for your Greendot Bank account. Click the button below to sign in instantly without entering a password:
         </p>
         <div style="text-align:center; margin:30px 0;">
@@ -391,12 +395,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           html: emailHtml,
         }),
       });
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       if (data.success) {
-        setMutationFeedback(`✓ Secure auto-login link emailed successfully to ${customer.email}!`);
+        setMutationFeedback(`✓ Secure auto-login link emailed successfully to ${customer.email || 'customer'}!`);
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
       } else {
-        setMutationFeedback(`✗ Failed to send email: ${data.error}`);
+        setMutationFeedback(`✗ Failed to send email: ${data.error || 'Server error'}`);
       }
     } catch (err: any) {
       setMutationFeedback(`✗ Network error sending email: ${err.message}`);
@@ -408,12 +412,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const openEditModal = (c: CustomerProfile) => {
     setTargetCustomer(c);
     setEditForm({
-      fullName: c.fullName,
-      email: c.email,
-      phone: c.phone || '',
-      address: c.address || '',
-      accountTier: c.accountTier,
-      hasVisaCard: c.hasVisaCard ?? true,
+      fullName: c?.fullName || (c as any)?.name || '',
+      email: c?.email || '',
+      phone: c?.phone || '',
+      address: c?.address || '',
+      accountTier: c?.accountTier || 'tier_1',
+      hasVisaCard: c?.hasVisaCard ?? false,
     });
     setActionModal('edit');
   };
@@ -1151,15 +1155,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
                     {filteredCustomers.map((c) => (
-                      <tr key={c.customerId} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={c.customerId || c.id} className="hover:bg-slate-800/30 transition-colors">
                         <td className="py-4 px-5 font-bold text-white">
-                          <div className="font-semibold text-slate-100">{c.fullName}</div>
+                          <div className="font-semibold text-slate-100">{c.fullName || (c as any)?.name || 'Valued Customer'}</div>
                           <div className="text-[10px] font-mono text-emerald-400 font-normal">
-                            {c.customerId}
+                            {c.customerId || 'N/A'}
                           </div>
                         </td>
 
-                        <td className="py-4 px-5 text-slate-300 font-mono text-[11px]">{c.email}</td>
+                        <td className="py-4 px-5 text-slate-300 font-mono text-[11px]">{c.email || 'N/A'}</td>
 
                         <td className="py-4 px-5">
                           <span
@@ -1173,19 +1177,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 : 'bg-red-500/20 text-red-300 border border-red-500/40'
                             }`}
                           >
-                            {c.status}
+                            {c.status || 'active'}
                           </span>
                         </td>
 
                         <td className="py-4 px-5 font-mono uppercase text-slate-300 text-xs font-semibold">
-                          {c.accountTier}
+                          {c.accountTier || 'tier_1'}
                         </td>
 
                         <td className="py-4 px-5">
                           {c.debitCard ? (
                             <span className="text-amber-300 font-black text-[11px] flex items-center gap-1.5 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20 w-max">
                               <CreditCard className="w-3.5 h-3.5 text-amber-400" />
-                              <span>{c.debitCard.status}</span>
+                              <span>{c.debitCard.status || 'active'}</span>
                             </span>
                           ) : (
                             <span className="text-slate-500 text-[11px]">Unprovisioned</span>
@@ -1193,7 +1197,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </td>
 
                         <td className="py-4 px-5 text-right font-mono font-black text-white text-sm">
-                          {formatCurrency(c.balance)}
+                          {formatCurrency(c?.balance ?? 0)}
                         </td>
 
                         <td className="py-4 px-5 text-center">
@@ -1234,9 +1238,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <div className="flex justify-between items-start pb-4 border-b border-slate-700">
                     <div>
                       <h3 className="font-display text-xl font-bold text-white">
-                        Customer #{selectedCustomer.customerId}
+                        Customer #{selectedCustomer.customerId || 'N/A'}
                       </h3>
-                      <div className="text-xs text-emerald-400">{selectedCustomer.fullName} &bull; {selectedCustomer.email}</div>
+                      <div className="text-xs text-emerald-400">
+                        {selectedCustomer.fullName || (selectedCustomer as any)?.name || 'Valued Customer'} &bull; {selectedCustomer.email || 'N/A'}
+                      </div>
                     </div>
                     <button
                       onClick={() => setSelectedCustomer(null)}
@@ -2054,7 +2060,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             </span>
                           </td>
                           <td className="py-3.5 px-4 font-mono text-slate-300">
-                            {cardOwner ? `${cardOwner.fullName} (${c.userId})` : c.userId}
+                            {cardOwner ? `${cardOwner.fullName || (cardOwner as any)?.name || 'Customer'} (${c.userId})` : c.userId}
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
@@ -2246,15 +2252,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       return true;
                     })
                     .filter((t) => {
-                      if (!supportSearchQuery.trim()) return true;
-                      const q = supportSearchQuery.toLowerCase();
+                      if (!supportSearchQuery || !supportSearchQuery.trim()) return true;
+                      const q = (supportSearchQuery || '').toLowerCase();
                       return (
-                        t.userName?.toLowerCase().includes(q) ||
-                        t.userEmail?.toLowerCase().includes(q) ||
-                        t.customerId?.toLowerCase().includes(q) ||
-                        t.id?.toLowerCase().includes(q) ||
-                        t.subject?.toLowerCase().includes(q) ||
-                        t.message?.toLowerCase().includes(q)
+                        (t.userName || '').toLowerCase().includes(q) ||
+                        (t.userEmail || '').toLowerCase().includes(q) ||
+                        (t.customerId || '').toLowerCase().includes(q) ||
+                        (t.id || '').toLowerCase().includes(q) ||
+                        (t.subject || '').toLowerCase().includes(q) ||
+                        (t.message || '').toLowerCase().includes(q)
                       );
                     });
 
@@ -2867,7 +2873,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="flex justify-between items-center pb-2 border-b border-slate-700">
               <div>
                 <h3 className="font-display font-bold text-white text-base">Edit Customer Profile</h3>
-                <p className="text-xs text-slate-400">Customer #{targetCustomer.customerId} &bull; {targetCustomer.fullName}</p>
+                <p className="text-xs text-slate-400">Customer #{targetCustomer.customerId || 'N/A'} &bull; {targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}</p>
               </div>
               <button onClick={() => setActionModal(null)} className="text-slate-400 hover:text-white font-bold">✕</button>
             </div>
@@ -2972,7 +2978,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="flex justify-between items-center pb-2 border-b border-slate-700">
               <div>
                 <h3 className="font-display font-bold text-white text-base">Fund Account (Administrative Credit)</h3>
-                <p className="text-xs text-emerald-400">Target: {targetCustomer.fullName} (#{targetCustomer.customerId})</p>
+                <p className="text-xs text-emerald-400">Target: {targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'} (#{targetCustomer.customerId || 'N/A'})</p>
               </div>
               <button onClick={() => setActionModal(null)} className="text-slate-400 hover:text-white font-bold">✕</button>
             </div>
@@ -3045,7 +3051,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="flex justify-between items-center pb-2 border-b border-slate-700">
               <div>
                 <h3 className="font-display font-bold text-white text-base">Deduct Funds (Administrative Debit)</h3>
-                <p className="text-xs text-red-400">Target: {targetCustomer.fullName} (#{targetCustomer.customerId})</p>
+                <p className="text-xs text-red-400">Target: {targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'} (#{targetCustomer.customerId || 'N/A'})</p>
               </div>
               <button onClick={() => setActionModal(null)} className="text-slate-400 hover:text-white font-bold">✕</button>
             </div>
@@ -3120,8 +3126,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </h3>
             <p className="text-xs text-slate-400">
               {actionModal === 'freeze'
-                ? `Freezing #${targetCustomer.customerId} (${targetCustomer.fullName}) immediately disables outgoing transfers, bill payments, and card debits.`
-                : `Unfreezing #${targetCustomer.customerId} (${targetCustomer.fullName}) restores all standard banking operations and card authorizations.`}
+                ? `Freezing #${targetCustomer.customerId || 'N/A'} (${targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) immediately disables outgoing transfers, bill payments, and card debits.`
+                : `Unfreezing #${targetCustomer.customerId || 'N/A'} (${targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) restores all standard banking operations and card authorizations.`}
             </p>
 
             <div>
@@ -3165,8 +3171,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </h3>
             <p className="text-xs text-slate-400">
               {actionModal === 'lock'
-                ? `Locking #${targetCustomer.customerId} (${targetCustomer.fullName}) terminates current sessions and prevents authentication and money operations.`
-                : `Unlocking #${targetCustomer.customerId} (${targetCustomer.fullName}) restores account access for the customer.`}
+                ? `Locking #${targetCustomer.customerId || 'N/A'} (${targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) terminates current sessions and prevents authentication and money operations.`
+                : `Unlocking #${targetCustomer.customerId || 'N/A'} (${targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) restores account access for the customer.`}
             </p>
 
             <div>
@@ -3210,8 +3216,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </h3>
             <p className="text-xs text-slate-400">
               {actionModal === 'suspend'
-                ? `Suspending #${targetCustomer.customerId} (${targetCustomer.fullName}) flags the customer for regulatory review and suspends all banking activity.`
-                : `Reactivating #${targetCustomer.customerId} (${targetCustomer.fullName}) restores account standing to active after clearance.`}
+                ? `Suspending #${targetCustomer.customerId || 'N/A'} (${targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) flags the customer for regulatory review and suspends all banking activity.`
+                : `Reactivating #${targetCustomer.customerId || 'N/A'} (${targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) restores account standing to active after clearance.`}
             </p>
 
             <div>
@@ -3252,7 +3258,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="bg-[#162032] border border-rose-700/60 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <h3 className="font-display font-bold text-white text-base">Close Customer Relationship</h3>
             <p className="text-xs text-slate-400">
-              Closing customer #{targetCustomer.customerId} marks accounts closed and terminates debit cards. Customer can be reopened later if requested.
+              Closing customer #{targetCustomer.customerId || 'N/A'} marks accounts closed and terminates debit cards. Customer can be reopened later if requested.
             </p>
 
             <div>
@@ -3291,7 +3297,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="bg-[#162032] border border-emerald-700/60 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <h3 className="font-display font-bold text-white text-base">Reopen Customer Account</h3>
             <p className="text-xs text-slate-400">
-              Restores customer #{targetCustomer.customerId} ({targetCustomer.fullName}) with an active checking/savings account and initial capital balance.
+              Restores customer #{targetCustomer.customerId || 'N/A'} ({targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}) with an active checking/savings account and initial capital balance.
             </p>
 
             <form onSubmit={handleReopenSubmit} className="space-y-3.5">
@@ -3350,13 +3356,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
             
             <p className="text-xs text-red-200/90 leading-relaxed">
-              You are about to permanently delete customer <strong className="text-white">{targetCustomer.fullName}</strong> (#{targetCustomer.customerId}). All associated bank accounts, debit cards, transactions, and user sessions will be purged.
+              You are about to permanently delete customer <strong className="text-white">{targetCustomer.fullName || (targetCustomer as any)?.name || 'Valued Customer'}</strong> (#{targetCustomer.customerId || 'N/A'}). All associated bank accounts, debit cards, transactions, and user sessions will be purged.
             </p>
 
             <div className="p-3 bg-red-950/60 border border-red-700/60 rounded-xl space-y-1 text-xs">
               <span className="text-red-300 font-bold">Confirmation Required:</span>
               <p className="text-[11px] text-slate-300">
-                To confirm permanent deletion, type <strong className="text-white font-mono">DELETE</strong> or customer ID <strong className="text-white font-mono">{targetCustomer.customerId}</strong> below:
+                To confirm permanent deletion, type <strong className="text-white font-mono">DELETE</strong> or customer ID <strong className="text-white font-mono">{targetCustomer.customerId || 'DELETE'}</strong> below:
               </p>
               <input
                 type="text"
@@ -3399,7 +3405,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <div>
                   <h3 className="font-display font-bold text-white text-base">Issue Gold Visa Debit Card</h3>
                   <p className="text-[11px] text-slate-400">
-                    Customer: <strong className="text-amber-300">{issueCardTargetCustomer.fullName}</strong> (#{issueCardTargetCustomer.customerId})
+                    Customer: <strong className="text-amber-300">{issueCardTargetCustomer.fullName || (issueCardTargetCustomer as any)?.name || 'Valued Customer'}</strong> (#{issueCardTargetCustomer.customerId || 'N/A'})
                   </p>
                 </div>
               </div>
@@ -3450,7 +3456,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div className="mt-3 flex items-end justify-between text-xs relative z-10">
                 <div>
                   <div className="text-[9px] uppercase font-bold tracking-wider text-slate-800">Cardholder Name</div>
-                  <div className="font-bold tracking-wide uppercase">{issueCardForm.cardHolder || issueCardTargetCustomer.fullName}</div>
+                  <div className="font-bold tracking-wide uppercase">{issueCardForm.cardHolder || issueCardTargetCustomer.fullName || (issueCardTargetCustomer as any)?.name || 'CUSTOMER'}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[9px] uppercase font-bold tracking-wider text-slate-800">Expires / CVV</div>
@@ -3496,7 +3502,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   required
                   value={issueCardForm.cardHolder}
                   onChange={(e) => setIssueCardForm({ ...issueCardForm, cardHolder: e.target.value.toUpperCase() })}
-                  placeholder={issueCardTargetCustomer.fullName.toUpperCase()}
+                  placeholder={(issueCardTargetCustomer.fullName || (issueCardTargetCustomer as any)?.name || 'CUSTOMER').toUpperCase()}
                   className="w-full mt-1 p-2.5 font-bold uppercase bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-amber-400"
                 />
               </div>
@@ -3577,7 +3583,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-[11px] text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                 <span>
-                  Issuing this card automatically sets <strong>hasVisaCard = true</strong> for {issueCardTargetCustomer.fullName}, unlocking account tier upgrade paths and live banking features.
+                  Issuing this card automatically sets <strong>hasVisaCard = true</strong> for {issueCardTargetCustomer.fullName || (issueCardTargetCustomer as any)?.name || 'this customer'}, unlocking account tier upgrade paths and live banking features.
                 </span>
               </div>
 

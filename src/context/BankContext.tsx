@@ -226,7 +226,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userId = session.user.id;
           setState((prev) => {
             const matched = prev.profiles.find(
-              (p) => p.userId === userId || (userEmail && p.email.toLowerCase() === userEmail)
+              (p) => p.userId === userId || (userEmail && (p?.email || '').toLowerCase() === userEmail)
             );
             if (matched && prev.currentUserId !== matched.userId) {
               return { ...prev, currentUserId: matched.userId };
@@ -242,7 +242,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userId = session.user.id;
           setState((prev) => {
             const matched = prev.profiles.find(
-              (p) => p.userId === userId || (userEmail && p.email.toLowerCase() === userEmail)
+              (p) => p.userId === userId || (userEmail && (p?.email || '').toLowerCase() === userEmail)
             );
             if (matched) {
               return { ...prev, currentUserId: matched.userId };
@@ -350,7 +350,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     let found = state.profiles.find(
-      (p) => p.email.toLowerCase() === cleanEmail || p.customerId.toLowerCase() === cleanEmail
+      (p) =>
+        (p?.email || '').toLowerCase() === cleanEmail ||
+        (p?.customerId || '').toLowerCase() === cleanEmail
     );
 
     if (!found) {
@@ -589,7 +591,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userId,
       accountId,
       cardNumber: '4532 ' + Math.floor(1000 + Math.random() * 9000) + ' ' + Math.floor(1000 + Math.random() * 9000) + ' ' + Math.floor(1000 + Math.random() * 9000),
-      cardHolder: data.fullName.toUpperCase(),
+      cardHolder: (data.fullName || data.email || 'VALUED CUSTOMER').toUpperCase(),
       expiryMonth: (new Date().getMonth() + 1),
       expiryYear: new Date().getFullYear() + 4,
       cvv: String(Math.floor(100 + Math.random() * 900)),
@@ -1545,7 +1547,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userId: user.userId,
       accountId: accountId || targetAccount?.id || 'acc-primary',
       cardNumber: customDetails?.cardNumber || generatedCardNumber,
-      cardHolder: (customDetails?.cardHolder || user.fullName).toUpperCase(),
+      cardHolder: (customDetails?.cardHolder || user.fullName || user.email || 'CUSTOMER').toUpperCase(),
       expiryMonth: customDetails?.expiryMonth ?? 12,
       expiryYear: customDetails?.expiryYear ?? new Date().getFullYear() + 4,
       cvv: customDetails?.cvv || String(Math.floor(100 + Math.random() * 900)),

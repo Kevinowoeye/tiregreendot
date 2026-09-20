@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Eye, RefreshCw, Search, CheckCircle2, AlertCircle, Send, Filter, X } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import { EmailLog } from '../../types';
-import { formatDate } from '../../lib/utils';
+import { formatDate, safeParseResponse } from '../../lib/utils';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 
 export const EmailLogsView: React.FC = () => {
@@ -24,11 +24,11 @@ export const EmailLogsView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: 'jade66oc@gmail.com' }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setTestEmailResult(`✓ Manual test email delivered successfully to ${data.recipient}! Message ID: ${data.messageId}`);
+      const data = await safeParseResponse<{ success?: boolean; recipient?: string; messageId?: string; error?: string }>(res);
+      if (data?.success) {
+        setTestEmailResult(`✓ Manual test email delivered successfully to ${data.recipient || 'jade66oc@gmail.com'}! Message ID: ${data.messageId || 'DELIVERED'}`);
       } else {
-        setTestEmailResult(`⚠️ Email delivery failed: ${data.error || 'Server error'}`);
+        setTestEmailResult(`⚠️ Email delivery failed: ${data?.error || 'Server error'}`);
       }
     } catch (err: any) {
       setTestEmailResult(`⚠️ Connection error: ${err.message || 'Could not reach /api/test-email'}`);
@@ -39,13 +39,13 @@ export const EmailLogsView: React.FC = () => {
 
   const filteredLogs = logs.filter((log) => {
     try {
-      const recipient = (log.recipient || (log as any).toEmail || '').toLowerCase();
-      const subject = (log.subject || '').toLowerCase();
-      const emailType = (log.emailType || (log as any).template || '').toLowerCase();
-      const query = searchQuery.toLowerCase().trim();
+      const recipient = (log?.recipient || (log as any)?.toEmail || '').toLowerCase();
+      const subject = (log?.subject || '').toLowerCase();
+      const emailType = (log?.emailType || (log as any)?.template || '').toLowerCase();
+      const query = (searchQuery || '').toLowerCase().trim();
 
       const matchesQuery = !query || recipient.includes(query) || subject.includes(query) || emailType.includes(query);
-      const matchesType = typeFilter === 'all' || emailType === typeFilter.toLowerCase();
+      const matchesType = typeFilter === 'all' || emailType === (typeFilter || '').toLowerCase();
 
       return matchesQuery && matchesType;
     } catch (e) {
@@ -54,9 +54,9 @@ export const EmailLogsView: React.FC = () => {
     }
   });
 
-  const getRecipient = (log: EmailLog) => log.recipient || (log as any).toEmail || 'support@greendotbanking.com';
-  const getTemplate = (log: EmailLog) => log.emailType || (log as any).template || 'system';
-  const getHtml = (log: EmailLog) => log.html || (log as any).htmlContent || `<div style="padding:20px;font-family:sans-serif;"><h3>${log.subject}</h3><p>Sent to: ${getRecipient(log)}</p></div>`;
+  const getRecipient = (log: EmailLog) => log?.recipient || (log as any)?.toEmail || 'support@greendotbanking.com';
+  const getTemplate = (log: EmailLog) => log?.emailType || (log as any)?.template || 'system';
+  const getHtml = (log: EmailLog) => log?.html || (log as any)?.htmlContent || `<div style="padding:20px;font-family:sans-serif;"><h3>${log?.subject || 'Notification'}</h3><p>Sent to: ${getRecipient(log)}</p></div>`;
 
   return (
     <div className="space-y-6">

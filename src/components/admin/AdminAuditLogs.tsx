@@ -14,13 +14,16 @@ export const AdminAuditLogs: React.FC = () => {
   const logs = state.auditLogs || [];
 
   const filteredLogs = logs.filter((log) => {
+    const q = (searchQuery || '').toLowerCase();
     const matchesSearch =
-      log.adminName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.targetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchQuery.toLowerCase());
+      (log?.adminName || '').toLowerCase().includes(q) ||
+      (log?.targetName || '').toLowerCase().includes(q) ||
+      (log?.action || '').toLowerCase().includes(q) ||
+      (log?.targetId || '').toLowerCase().includes(q) ||
+      (log?.id || '').toLowerCase().includes(q);
 
     if (actionFilter === 'all') return matchesSearch;
-    return matchesSearch && log.action.toLowerCase().includes(actionFilter.toLowerCase());
+    return matchesSearch && (log?.action || '').toLowerCase().includes((actionFilter || '').toLowerCase());
   });
 
   const handleExportJson = () => {
@@ -113,24 +116,24 @@ export const AdminAuditLogs: React.FC = () => {
                 filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-mono font-bold text-emerald-400">{log.id}</div>
+                      <div className="font-mono font-bold text-emerald-400">{log.id || 'N/A'}</div>
                       <div className="text-[10px] text-slate-500 font-mono">{formatDate(log.createdAt)}</div>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-white flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-blue-400" />
-                      <span>{log.adminName}</span>
+                      <span>{log.adminName || 'Administrator'}</span>
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg font-mono text-[11px] text-amber-300 font-bold">
-                        {log.action}
+                        {log.action || 'OPERATION'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-white">{log.targetName}</div>
-                      <div className="text-[10px] font-mono text-slate-400">{log.targetId}</div>
+                      <div className="font-bold text-white">{log.targetName || 'Customer / Target'}</div>
+                      <div className="text-[10px] font-mono text-slate-400">{log.targetId || 'N/A'}</div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-300 max-w-xs truncate">
-                      {log.reason || JSON.stringify(log.details)}
+                      {log.reason || JSON.stringify(log.details || {})}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <button

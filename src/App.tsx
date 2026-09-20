@@ -99,7 +99,11 @@ const BankAppInner: React.FC = () => {
         if (target) {
           const decoded = decodeURIComponent(target);
           const found = state.profiles.find(
-            (p) => p.id === decoded || p.customerId === decoded || p.email.toLowerCase() === decoded.toLowerCase()
+            (p) =>
+              (p as any)?.id === decoded ||
+              p.userId === decoded ||
+              (p?.customerId || '') === decoded ||
+              (p?.email || '').toLowerCase() === (decoded || '').toLowerCase()
           );
           if (found) {
             switchCustomer(found.userId);

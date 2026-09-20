@@ -826,8 +826,18 @@ export async function sendEmailApi(options: {
         resendApiKey: resendApiKey || undefined,
       }),
     });
-    const data = await res.json().catch(() => ({ success: false, error: 'Invalid JSON response from server' }));
-    return data;
+    if (res.status === 204) {
+      return { success: res.ok };
+    }
+    const text = await res.text().catch(() => '');
+    if (!text || !text.trim()) {
+      return { success: res.ok };
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { success: res.ok, error: 'Invalid JSON response from server' };
+    }
   } catch (err: any) {
     console.warn('sendEmailApi dispatch error:', err);
     return { success: false, error: err?.message || 'Network error' };

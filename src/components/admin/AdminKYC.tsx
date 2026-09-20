@@ -20,13 +20,14 @@ export const AdminKYC: React.FC = () => {
 
   const profiles = state.profiles.filter((p) => p.role === 'customer');
   const filteredProfiles = profiles.filter((p) => {
+    const q = (searchQuery || '').toLowerCase();
     const matchesSearch =
-      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.customerId.toLowerCase().includes(searchQuery.toLowerCase());
+      (p?.fullName || (p as any)?.name || p?.email || '').toLowerCase().includes(q) ||
+      (p?.email || '').toLowerCase().includes(q) ||
+      (p?.customerId || '').toLowerCase().includes(q);
     
     if (filterStatus === 'all') return matchesSearch;
-    return matchesSearch && (p.kycStatus || 'pending') === filterStatus;
+    return matchesSearch && (p?.kycStatus || 'pending') === filterStatus;
   });
 
   const handleApprove = (userId: string, name: string) => {
@@ -113,14 +114,14 @@ export const AdminKYC: React.FC = () => {
                   return (
                     <tr key={p.userId} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3.5 px-4 font-bold text-white">
-                        <div>{p.fullName}</div>
+                        <div>{p.fullName || (p as any)?.name || 'Valued Customer'}</div>
                         <div className="text-[10px] font-mono text-emerald-400 font-normal">
-                          {p.customerId}
+                          {p.customerId || 'N/A'}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-300 font-mono">{p.email}</td>
+                      <td className="py-3.5 px-4 text-slate-300 font-mono">{p.email || 'N/A'}</td>
                       <td className="py-3.5 px-4 uppercase font-mono text-amber-400 font-bold">
-                        {p.accountTier}
+                        {p.accountTier || 'tier_1'}
                       </td>
                       <td className="py-3.5 px-4 text-slate-300">
                         <div className="flex items-center gap-1.5 text-xs">
@@ -157,7 +158,7 @@ export const AdminKYC: React.FC = () => {
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => handleApprove(p.userId, p.fullName)}
+                            onClick={() => handleApprove(p.userId, p.fullName || (p as any)?.name || 'Valued Customer')}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-colors shadow"
                           >
                             Approve
@@ -187,7 +188,7 @@ export const AdminKYC: React.FC = () => {
               <div>
                 <h3 className="font-display font-bold text-lg">KYC Document Dossier</h3>
                 <p className="text-xs text-slate-400">
-                  {inspectCustomer.fullName} &bull; {inspectCustomer.customerId}
+                  {inspectCustomer.fullName || (inspectCustomer as any)?.name || 'Valued Customer'} &bull; {inspectCustomer.customerId || 'N/A'}
                 </p>
               </div>
               <button
@@ -221,7 +222,7 @@ export const AdminKYC: React.FC = () => {
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
               <button
                 onClick={() => {
-                  handleApprove(inspectCustomer.userId, inspectCustomer.fullName);
+                  handleApprove(inspectCustomer.userId, inspectCustomer.fullName || (inspectCustomer as any)?.name || 'Valued Customer');
                   setInspectCustomer(null);
                 }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl"

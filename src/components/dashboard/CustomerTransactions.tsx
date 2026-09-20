@@ -27,13 +27,15 @@ export const CustomerTransactions: React.FC = () => {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const filtered = customerTransactions.filter((tx) => {
+    const q = (search || '').toLowerCase().trim();
     const matchSearch =
-      tx.description.toLowerCase().includes(search.toLowerCase()) ||
-      tx.id.toLowerCase().includes(search.toLowerCase()) ||
-      tx.reference.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      (tx?.description || '').toLowerCase().includes(q) ||
+      (tx?.id || '').toLowerCase().includes(q) ||
+      (tx?.reference || '').toLowerCase().includes(q);
 
-    const matchType = typeFilter === 'all' || tx.type === typeFilter;
-    const matchStatus = statusFilter === 'all' || tx.status === statusFilter;
+    const matchType = typeFilter === 'all' || tx?.type === typeFilter;
+    const matchStatus = statusFilter === 'all' || tx?.status === statusFilter;
 
     return matchSearch && matchType && matchStatus;
   });

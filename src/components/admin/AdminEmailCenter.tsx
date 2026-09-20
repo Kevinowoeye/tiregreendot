@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Send, Eye, CheckCircle2, AlertCircle, Filter, Search, RefreshCw, FileText } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import { EmailLog } from '../../types';
-import { formatDate } from '../../lib/utils';
+import { formatDate, safeParseResponse } from '../../lib/utils';
 import { renderBrandedEmailHtml } from '../../lib/emailTemplates';
 import confetti from 'canvas-confetti';
 
@@ -40,17 +40,17 @@ export const AdminEmailCenter: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: testEmailRecipient }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeParseResponse<{ success?: boolean; provider?: string; recipient?: string; messageId?: string; error?: string }>(res);
+      if (data?.success) {
         setTestEmailResult({
           success: true,
-          message: `✓ Test email successfully delivered via ${data.provider || 'Resend'} to ${data.recipient}! (ID: ${data.messageId})`,
+          message: `✓ Test email successfully delivered via ${data.provider || 'Resend'} to ${data.recipient || testEmailRecipient}! (ID: ${data.messageId || 'SENT'})`,
         });
         confetti({ particleCount: 40, spread: 50, origin: { y: 0.5 } });
       } else {
         setTestEmailResult({
           success: false,
-          message: `Error: ${data.error || 'Failed to dispatch test email'}`,
+          message: `Error: ${data?.error || 'Failed to dispatch test email'}`,
         });
       }
     } catch (err: any) {
@@ -67,14 +67,14 @@ export const AdminEmailCenter: React.FC = () => {
 
   const filteredLogs = emailLogs.filter((log) => {
     try {
-      const recipient = (log.recipient || (log as any).toEmail || '').toLowerCase();
-      const subject = (log.subject || '').toLowerCase();
-      const type = (log.emailType || (log as any).template || '').toLowerCase();
-      const q = searchQuery.toLowerCase().trim();
+      const recipient = (log?.recipient || (log as any)?.toEmail || '').toLowerCase();
+      const subject = (log?.subject || '').toLowerCase();
+      const type = (log?.emailType || (log as any)?.template || '').toLowerCase();
+      const q = (searchQuery || '').toLowerCase().trim();
 
       const matchesSearch = !q || recipient.includes(q) || subject.includes(q);
       if (filterType === 'all') return matchesSearch;
-      return matchesSearch && type === filterType.toLowerCase();
+      return matchesSearch && type === (filterType || '').toLowerCase();
     } catch {
       return false;
     }
@@ -88,7 +88,7 @@ export const AdminEmailCenter: React.FC = () => {
     try {
       const targets = recipientEmail === 'all'
         ? state.profiles.filter((p) => p.role === 'customer')
-        : state.profiles.filter((p) => p.email.toLowerCase() === recipientEmail.toLowerCase());
+        : state.profiles.filter((p) => (p?.email || '').toLowerCase() === (recipientEmail || '').toLowerCase());
 
       if (targets.length === 0) {
         setSendingStatus('Error: No matching customer recipient found.');
@@ -98,12 +98,12 @@ export const AdminEmailCenter: React.FC = () => {
 
       for (const target of targets) {
         const html = renderBrandedEmailHtml({
-          recipientName: target.fullName,
-          recipientEmail: target.email,
+          recipientName: target?.fullName || (target as any)?.name || 'Valued Customer',
+          recipientEmail: target?.email || '',
           type: emailTemplate,
           subject: emailSubject,
           amount: customAmount,
-          balanceAfter: target.balance || 5000,
+          balanceAfter: target?.balance ?? 5000,
           content: emailContent,
           siteUrl: state.appSettings.site_url,
         });
@@ -342,8 +342,8 @@ export const AdminEmailCenter: React.FC = () => {
                 >
                   <option value="all">Broadcast to All Active Customers ({state.profiles.filter((p) => p.role === 'customer').length})</option>
                   {state.profiles.filter((p) => p.role === 'customer').map((c) => (
-                    <option key={c.userId} value={c.email}>
-                      {c.fullName} ({c.email})
+                    <option key={c.userId || c.email} value={c.email}>
+                      {c?.fullName || (c as any)?.name || 'Customer'} ({c?.email || 'N/A'})
                     </option>
                   ))}
                 </select>

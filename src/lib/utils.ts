@@ -79,3 +79,22 @@ export function generateReference(prefix = 'TXN'): string {
   }
   return ref;
 }
+
+/**
+ * Safely parse fetch Response, handling 204 No Content, Safari/Opera empty bodies,
+ * and text responses without throwing SyntaxError on response.json()
+ */
+export async function safeParseResponse<T = any>(res: Response): Promise<T> {
+  if (res.status === 204) {
+    return { success: res.ok } as unknown as T;
+  }
+  try {
+    const text = await res.text();
+    if (!text || !text.trim()) {
+      return { success: res.ok } as unknown as T;
+    }
+    return JSON.parse(text) as T;
+  } catch (err: any) {
+    return { success: res.ok, error: err?.message || 'Empty or invalid response payload' } as unknown as T;
+  }
+}
