@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="sphereGrad" cx="35%" cy="32%" r="68%">
+        <stop offset="0%" stop-color="#73f55e" />
+        <stop offset="35%" stop-color="#16cf32" />
+        <stop offset="70%" stop-color="#059e1e" />
+        <stop offset="100%" stop-color="#026312" />
+      </radialGradient>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#042314" />
+        <stop offset="100%" stop-color="#02140b" />
+      </linearGradient>
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="15.36" stdDeviation="20.48" flood-color="#000000" flood-opacity="0.5"/>
+      </filter>
+      <filter id="innerGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="5.12" stdDeviation="7.68" flood-color="#a3ff95" flood-opacity="0.6"/>
+      </filter>
+    </defs>
+    
+    <!-- Background -->
+    <rect width="512" height="512" rx="112.64" fill="url(#bgGrad)" />
+
+    <!-- Subtle border -->
+    <rect x="1" y="1" width="510" height="510" rx="112.64" fill="none" stroke="rgba(52, 211, 153, 0.2)" stroke-width="2" />
+
+    <!-- 3D Greendot Sphere -->
+    <circle cx="256" cy="230.4" r="163.84" fill="url(#sphereGrad)" filter="url(#shadow)" />
+    
+    <!-- Specular highlight reflection -->
+    <ellipse cx="198.656" cy="168.1408" rx="45.87520000000001" ry="36.0448" fill="white" opacity="0.65" transform="rotate(-20, 198.656, 168.1408)" />
+
+    <!-- Typography underneath: greendot bank -->
+    <text x="256" y="455.68" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="45.056" fill="#ffffff" letter-spacing="-0.5px">
+      greendot
+    </text>
+    <text x="256" y="494.08000000000004" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="28.16" fill="#34d399" letter-spacing="1.5px">
+      BANK
+    </text>
+  </svg>

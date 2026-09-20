@@ -1,0 +1,11 @@
+{
+  "name": "Tire Greendot main",
+  "description": "Next-generation secure online banking platform with customer dashboard, transfers, debit cards, loans, and admin management portal.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
