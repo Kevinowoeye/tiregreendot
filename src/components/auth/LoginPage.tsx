@@ -27,7 +27,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateHome,
   onNavigateRegister,
 }) => {
-  const { login, requestPasswordReset } = useBank();
+  const { login, loginWithToken, requestPasswordReset } = useBank();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -37,57 +37,80 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
+  const [tokenAuthenticating, setTokenAuthenticating] = useState(false);
+  const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Parse URL search parameters on mount for magic auto-fill login link and token parameters
+  // Parse URL search parameters on mount for 1-click auto-login link and token parameters
   useEffect(() => {
-    try {
-      let search = window.location.search;
-      if (!search && window.location.hash.includes('?')) {
-        search = window.location.hash.substring(window.location.hash.indexOf('?'));
-      }
-      if (search) {
-        const params = new URLSearchParams(search);
-        const emailParam = params.get('email');
-        const passParam = params.get('password');
-        const tokenParam = params.get('token');
+    let isMounted = true;
 
-        if (emailParam) {
-          setEmail(emailParam.trim());
-        } else if (tokenParam && !emailParam) {
-          setEmail(decodeURIComponent(tokenParam).trim());
+    const attemptTokenAuth = async () => {
+      try {
+        let search = window.location.search;
+        if (!search && window.location.hash.includes('?')) {
+          search = window.location.hash.substring(window.location.hash.indexOf('?'));
         }
-        if (passParam) {
-          setPassword(passParam.trim());
-        }
+        if (search) {
+          const params = new URLSearchParams(search);
+          const emailParam = params.get('email');
+          const passParam = params.get('password');
+          const tokenParam = params.get('token');
 
-        // If token parameter is present, attempt seamless instant authentication
-        if (tokenParam) {
-          const userIdentifier = emailParam ? emailParam.trim() : tokenParam.trim();
-          const res = login(userIdentifier, tokenParam.trim(), tokenParam.trim());
-          if (res.success && res.user) {
-            if (onSuccess) {
-              onSuccess(res.user.role);
-            } else if (res.user.role === 'admin') {
-              handleNavigate('admin');
+          if (emailParam) {
+            setEmail(emailParam.trim());
+          } else if (tokenParam && !emailParam) {
+            setEmail(decodeURIComponent(tokenParam).trim());
+          }
+          if (passParam) {
+            setPassword(passParam.trim());
+          }
+
+          // 1-Click Auto-Login: If token parameter is present, automatically authenticate WITHOUT requiring a password
+          if (tokenParam) {
+            setTokenAuthenticating(true);
+            setError(null);
+            const userIdentifier = emailParam ? emailParam.trim() : '';
+            const res = await loginWithToken(userIdentifier, tokenParam.trim());
+
+            if (!isMounted) return;
+
+            if (res.success && res.user) {
+              setTokenSuccess(res.message);
+              setTimeout(() => {
+                if (onSuccess) {
+                  onSuccess(res.user?.role);
+                } else if (res.user?.role === 'admin') {
+                  handleNavigate('admin');
+                } else {
+                  handleNavigate('dashboard');
+                }
+              }, 450);
+              return;
             } else {
-              handleNavigate('dashboard');
+              setTokenAuthenticating(false);
+              setError(res.message || 'Direct access link has expired or is invalid. Please sign in with your credentials.');
             }
-            return;
+          }
+
+          if (emailParam && !tokenParam) {
+            setAutoFilled(true);
+            setTimeout(() => {
+              submitButtonRef.current?.focus();
+            }, 150);
           }
         }
-
-        if (emailParam || tokenParam) {
-          setAutoFilled(true);
-          // Set focus on submit button to enable instant one-click login
-          setTimeout(() => {
-            submitButtonRef.current?.focus();
-          }, 150);
-        }
+      } catch (err) {
+        console.warn('Unable to parse URL parameters:', err);
+        if (isMounted) setTokenAuthenticating(false);
       }
-    } catch (err) {
-      console.warn('Unable to parse URL parameters:', err);
-    }
+    };
+
+    attemptTokenAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleNavigate = (route: string) => {
@@ -323,7 +346,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </p>
               </div>
 
-              {autoFilled && (
+              {tokenAuthenticating && (
+                <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-3 text-xs text-emerald-900 font-semibold shadow-xs animate-pulse">
+                  <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <div>
+                    <div className="font-bold text-emerald-950">Authenticating Direct Access Link...</div>
+                    <div className="text-[11px] text-emerald-700 font-normal">Signing you securely into your Greendot dashboard without a password.</div>
+                  </div>
+                </div>
+              )}
+
+              {tokenSuccess && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-400 rounded-xl flex items-center gap-2.5 text-xs text-emerald-900 font-semibold shadow-xs animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <div>
+                    <span className="font-bold">Access Token Verified!</span> Logging you in...
+                  </div>
+                </div>
+              )}
+
+              {autoFilled && !tokenAuthenticating && !tokenSuccess && (
                 <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 font-semibold animate-fade-in shadow-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   <span>Credentials pre-filled from your welcome link. Click below to sign in.</span>

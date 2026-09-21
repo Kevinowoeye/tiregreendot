@@ -41,6 +41,7 @@ import {
   Clock,
   User,
   Check,
+  Copy,
 } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import { CustomerProfile, Transaction, Loan, AppSettings, EmailLog, AccountTier, AccountStatus } from '../../types';
@@ -95,9 +96,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     approveBillPayment,
     rejectBillPayment,
     sendInstantLoginLink,
+    resetAndSendTemporaryCredentials,
   } = useBank();
 
   const [sendingLoginLink, setSendingLoginLink] = useState<string | null>(null);
+  const [resettingCredentials, setResettingCredentials] = useState<string | null>(null);
+  const [tempCredentialsModal, setTempCredentialsModal] = useState<{
+    isOpen: boolean;
+    customerName: string;
+    email: string;
+    tempPassword: string;
+    loginUrl: string;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'customers' | 'cards' | 'transactions' | 'loans' | 'emails' | 'settings' | 'new-customer' | 'support' | 'kyc' | 'email-center' | 'announcements' | 'analytics' | 'audit-logs'
@@ -377,7 +388,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const handleSendAutoLoginEmail = async (customer: CustomerProfile) => {
     try {
       setSendingLoginLink(customer.userId || customer.id);
-      const res = await sendInstantLoginLink(customer);
+      const res = await sendInstantLoginLink(customer as any);
       if (res.success) {
         setMutationFeedback(`✓ ${res.message}`);
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
@@ -389,6 +400,31 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     } finally {
       setSendingLoginLink(null);
       setTimeout(() => setMutationFeedback(null), 5000);
+    }
+  };
+
+  const handleResetAndSendCredentials = async (customer: CustomerProfile) => {
+    try {
+      setResettingCredentials(customer.userId || customer.id);
+      const res = await resetAndSendTemporaryCredentials(customer as any, 'Greendot2026!');
+      if (res.success && res.tempPassword && res.loginUrl) {
+        setTempCredentialsModal({
+          isOpen: true,
+          customerName: customer?.fullName || (customer as any)?.name || 'Valued Customer',
+          email: customer.email,
+          tempPassword: res.tempPassword,
+          loginUrl: res.loginUrl,
+        });
+        setMutationFeedback(`✓ ${res.message}`);
+        confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
+      } else {
+        setMutationFeedback(`✗ ${res.message}`);
+      }
+    } catch (err: any) {
+      setMutationFeedback(`✗ Error resetting credentials: ${err.message}`);
+    } finally {
+      setResettingCredentials(null);
+      setTimeout(() => setMutationFeedback(null), 6000);
     }
   };
 
@@ -1219,10 +1255,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               onClick={() => handleSendAutoLoginEmail(c)}
                               disabled={sendingLoginLink === (c.userId || c.id)}
                               className="px-2.5 py-1.5 bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/50 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
-                              title="Send Instant Login Link via Gmail SMTP"
+                              title="Send 1-Click Auto-Login Link via Gmail SMTP"
                             >
                               <Mail className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                              <span>{sendingLoginLink === (c.userId || c.id) ? 'Sending...' : 'Send Instant Login Link'}</span>
+                              <span>{sendingLoginLink === (c.userId || c.id) ? 'Sending...' : 'Send Login Link'}</span>
+                            </button>
+                            <button
+                              onClick={() => handleResetAndSendCredentials(c)}
+                              disabled={resettingCredentials === (c.userId || c.id)}
+                              className="px-2.5 py-1.5 bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-500/50 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                              title="Reset & Send Temporary Credentials via Gmail SMTP"
+                            >
+                              <KeyRound className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>{resettingCredentials === (c.userId || c.id) ? 'Resetting...' : 'Reset & Send Temporary Credentials'}</span>
                             </button>
                             <button
                               onClick={() => openIssueCardModal(c)}
@@ -1348,10 +1393,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         disabled={sendingLoginLink === (selectedCustomer.userId || selectedCustomer.id)}
                         className="p-2.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 rounded-xl text-xs font-bold transition-all text-left flex flex-col gap-1 border border-cyan-600/50 disabled:opacity-50"
                       >
-                        <span className="text-cyan-400">
-                          {sendingLoginLink === (selectedCustomer.userId || selectedCustomer.id) ? '⏳ Sending Link...' : '✉️ Send Instant Login Link'}
+                        <span className="text-cyan-400 flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" />
+                          {sendingLoginLink === (selectedCustomer.userId || selectedCustomer.id) ? 'Sending Link...' : 'Send Login Link'}
                         </span>
-                        <span className="text-[10px] text-cyan-300/70 font-normal">Dispatch via Gmail SMTP</span>
+                        <span className="text-[10px] text-cyan-300/70 font-normal">1-Click Auto-Login via Gmail SMTP</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleResetAndSendCredentials(selectedCustomer)}
+                        disabled={resettingCredentials === (selectedCustomer.userId || selectedCustomer.id)}
+                        className="p-2.5 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 rounded-xl text-xs font-bold transition-all text-left flex flex-col gap-1 border border-amber-600/50 disabled:opacity-50"
+                      >
+                        <span className="text-amber-400 flex items-center gap-1.5">
+                          <KeyRound className="w-3.5 h-3.5" />
+                          {resettingCredentials === (selectedCustomer.userId || selectedCustomer.id) ? 'Resetting...' : 'Reset & Send Temporary Credentials'}
+                        </span>
+                        <span className="text-[10px] text-amber-300/70 font-normal">Generate temp pass &amp; email credentials</span>
                       </button>
 
                       {selectedCustomer.status === 'frozen' ? (
@@ -3897,6 +3955,138 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow"
               >
                 Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Credentials Modal */}
+      {tempCredentialsModal && tempCredentialsModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#162032] border border-amber-500/40 rounded-3xl p-6 sm:p-7 max-w-lg w-full space-y-5 shadow-2xl my-8 animate-fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-white text-base">Temporary Credentials Dispatched</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Customer: <strong className="text-amber-300">{tempCredentialsModal.customerName}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTempCredentialsModal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                These credentials and the 1-click login button were successfully dispatched via Gmail SMTP to <strong>{tempCredentialsModal.email}</strong>.
+              </span>
+            </div>
+
+            <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 space-y-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">
+                  Email:
+                </div>
+                <div className="flex items-center justify-between bg-slate-800/80 rounded-xl px-3 py-2 border border-slate-700">
+                  <span className="font-mono text-xs text-sky-300 select-all font-semibold">
+                    {tempCredentialsModal.email}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(tempCredentialsModal.email);
+                      setCopiedField('email');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 font-bold ml-2"
+                  >
+                    {copiedField === 'email' ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Copied
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Copy className="w-3.5 h-3.5" /> Copy
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">
+                  Temporary Password:
+                </div>
+                <div className="flex items-center justify-between bg-slate-800/80 rounded-xl px-3 py-2 border border-slate-700">
+                  <span className="font-mono text-sm text-amber-300 font-bold select-all">
+                    {tempCredentialsModal.tempPassword}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(tempCredentialsModal.tempPassword);
+                      setCopiedField('password');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 font-bold ml-2"
+                  >
+                    {copiedField === 'password' ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Copied
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Copy className="w-3.5 h-3.5" /> Copy
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">
+                  1-Click Direct Access Link:
+                </div>
+                <div className="flex items-center justify-between bg-slate-800/80 rounded-xl px-3 py-2 border border-slate-700">
+                  <span className="font-mono text-[11px] text-slate-300 truncate max-w-[280px] select-all">
+                    {tempCredentialsModal.loginUrl}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(tempCredentialsModal.loginUrl);
+                      setCopiedField('url');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 font-bold ml-2 shrink-0"
+                  >
+                    {copiedField === 'url' ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Copied
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Copy className="w-3.5 h-3.5" /> Copy Link
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setTempCredentialsModal(null)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all"
+              >
+                Done
               </button>
             </div>
           </div>
