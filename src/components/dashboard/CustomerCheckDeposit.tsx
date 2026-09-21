@@ -12,7 +12,6 @@ import {
   Check,
   X,
   RotateCcw,
-  Sparkles,
   Eye,
   FileText,
 } from 'lucide-react';
@@ -23,49 +22,6 @@ import { Transaction } from '../../types';
 interface CustomerCheckDepositProps {
   onSuccessNavigate?: () => void;
 }
-
-const generateSampleCheckFront = (name: string, amt: string, num: string) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" width="600" height="280">
-    <rect width="600" height="280" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3" rx="8"/>
-    <rect x="12" y="12" width="576" height="256" fill="#f1f5f9" stroke="#94a3b8" stroke-dasharray="4,4" rx="6"/>
-    <text x="36" y="44" font-family="sans-serif" font-size="16" font-weight="bold" fill="#047857">GREENDOT BANK N.A.</text>
-    <text x="36" y="60" font-family="sans-serif" font-size="10" fill="#64748b">100 Financial Plaza, New York, NY • Member FDIC</text>
-    <text x="530" y="44" font-family="monospace" font-size="18" font-weight="bold" fill="#1e293b">${num}</text>
-    <text x="440" y="78" font-family="sans-serif" font-size="11" fill="#475569">DATE: ${new Date().toLocaleDateString()}</text>
-    <line x1="480" y1="80" x2="560" y2="80" stroke="#94a3b8" stroke-width="1"/>
-    <text x="36" y="112" font-family="sans-serif" font-size="11" font-weight="bold" fill="#334155">PAY TO THE ORDER OF</text>
-    <text x="175" y="112" font-family="sans-serif" font-size="14" font-weight="bold" fill="#0f172a">${name}</text>
-    <line x1="170" y1="116" x2="470" y2="116" stroke="#475569" stroke-width="1"/>
-    <rect x="480" y="96" width="90" height="28" fill="#ffffff" stroke="#047857" stroke-width="1.5" rx="4"/>
-    <text x="488" y="115" font-family="monospace" font-size="14" font-weight="bold" fill="#047857">$${amt}</text>
-    <text x="36" y="150" font-family="cursive, sans-serif" font-size="13" fill="#1e293b">One Thousand Five Hundred and 00/100 ----------------</text>
-    <line x1="36" y1="154" x2="560" y2="154" stroke="#94a3b8" stroke-width="1"/>
-    <text x="36" y="196" font-family="sans-serif" font-size="11" fill="#475569">MEMO: Payroll / Consulting Settlement</text>
-    <line x1="80" y1="200" x2="260" y2="200" stroke="#94a3b8" stroke-width="1"/>
-    <text x="380" y="194" font-family="cursive" font-size="18" fill="#1e3a8a">Authorized Officer</text>
-    <line x1="370" y1="200" x2="560" y2="200" stroke="#475569" stroke-width="1"/>
-    <text x="60" y="244" font-family="monospace" font-size="14" fill="#0f172a">⑆021000021⑆ 0210488219⑈ ${num}⑈</text>
-  </svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-};
-
-const generateSampleCheckBack = (name: string) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" width="600" height="280">
-    <rect width="600" height="280" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3" rx="8"/>
-    <rect x="12" y="12" width="576" height="256" fill="#f1f5f9" stroke="#94a3b8" stroke-dasharray="4,4" rx="6"/>
-    <rect x="36" y="30" width="220" height="216" fill="#ffffff" stroke="#94a3b8" stroke-dasharray="2,2" rx="4"/>
-    <text x="46" y="52" font-family="sans-serif" font-size="10" font-weight="bold" fill="#64748b">ENDORSE CHECK HERE</text>
-    <text x="50" y="95" font-family="cursive" font-size="20" fill="#1e3a8a">${name}</text>
-    <line x1="46" y1="105" x2="240" y2="105" stroke="#475569" stroke-width="1"/>
-    <text x="50" y="128" font-family="sans-serif" font-size="9" font-weight="bold" fill="#047857">FOR MOBILE DEPOSIT ONLY</text>
-    <text x="50" y="142" font-family="sans-serif" font-size="9" font-weight="bold" fill="#047857">AT GREENDOT BANK</text>
-    <line x1="46" y1="150" x2="240" y2="150" stroke="#94a3b8" stroke-width="1"/>
-    <text x="50" y="174" font-family="sans-serif" font-size="9" fill="#94a3b8">DO NOT WRITE, STAMP, OR SIGN</text>
-    <text x="50" y="186" font-family="sans-serif" font-size="9" fill="#94a3b8">BELOW THIS LINE</text>
-    <text x="280" y="145" font-family="sans-serif" font-size="14" font-weight="bold" fill="#cbd5e1" transform="rotate(-30 280 145)">ORIGINAL DOCUMENT • SECURITY WATERMARK</text>
-  </svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-};
 
 export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSuccessNavigate }) => {
   const { currentUser, submitCheckDeposit, customerTransactions } = useBank();
@@ -99,19 +55,6 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
   const userCheckDeposits = (customerTransactions || []).filter(
     (t) => t.category === 'mobile_deposit' || t.description?.toLowerCase().includes('check')
   );
-
-  const handleLoadSampleCheck = () => {
-    const customerName = currentUser.fullName || 'Valued Customer';
-    const sampleCheckNum = '4092';
-    const sampleAmt = '1500.00';
-    setAmount(sampleAmt);
-    setCheckNumber(sampleCheckNum);
-    setFrontImage(generateSampleCheckFront(customerName, sampleAmt, sampleCheckNum));
-    setBackImage(generateSampleCheckBack(customerName));
-    setEndorsedChecked(true);
-    setValidationError(null);
-    setToastMessage('✓ Sample test check loaded with realistic front and back scans! Click "Submit Check for Deposit" to test.');
-  };
 
   // Handle actual native camera capture or image upload
   const handleImageSelected = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
@@ -294,20 +237,9 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
             Deposit paper checks using your device&apos;s camera. Reviewed and credited in approximately 30 minutes.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleLoadSampleCheck}
-            className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 px-3.5 py-2 rounded-2xl transition-all shadow-sm active:scale-95 cursor-pointer"
-            title="Load a pre-filled sample test check with realistic front and back scans"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>⚡ Use Sample Test Check</span>
-          </button>
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-2 rounded-2xl border border-emerald-200">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Daily Limit: $10,000.00</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-2 rounded-2xl border border-emerald-200">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <span>Daily Limit: $10,000.00</span>
         </div>
       </div>
 
@@ -687,7 +619,7 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
         {userCheckDeposits.length === 0 ? (
           <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
             <p className="text-xs text-slate-500">
-              No check deposits submitted yet. You can submit your first check above or click &ldquo;⚡ Use Sample Test Check&rdquo; to test the underwriting workflow.
+              No mobile check deposits submitted yet. Deposited checks and review statuses will appear here.
             </p>
           </div>
         ) : (

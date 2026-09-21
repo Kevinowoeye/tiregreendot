@@ -3721,7 +3721,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                 ) : (
                   <div className="p-8 rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 text-center text-slate-400 text-xs">
-                    No front image attached with this test record.
+                    No front image attached with this deposit record.
                   </div>
                 )}
               </div>
@@ -3741,7 +3741,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                 ) : (
                   <div className="p-8 rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 text-center text-slate-400 text-xs">
-                    No back endorsement image attached with this test record.
+                    No back endorsement image attached with this deposit record.
                   </div>
                 )}
               </div>
