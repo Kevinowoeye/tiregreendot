@@ -70,7 +70,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export const INITIAL_STATE: BankState = {
   appSettings: DEFAULT_SETTINGS,
-  currentUserId: 'cust-1', // Default to active customer Sarah Mitchell
+  currentUserId: null, // Default to null (no mock user Sarah Mitchell fallback)
   profiles: [
     {
       id: 'admin-1',
@@ -619,10 +619,19 @@ export function loadState(): BankState {
         loadedSettings.site_url = 'https://greendotbanking.com';
       }
 
+      let initialUserId = parsed.currentUserId;
+      if (initialUserId === 'cust-1') {
+        const hasUrlParam = typeof window !== 'undefined' && (window.location.search.includes('token=') || window.location.search.includes('email=') || window.location.search.includes('autologin='));
+        if (!hasUrlParam) {
+          initialUserId = null;
+        }
+      }
+
       // Merge in any missing defaults if schema updated
       return {
         ...INITIAL_STATE,
         ...parsed,
+        currentUserId: initialUserId,
         profiles: activeProfiles,
         accounts: activeAccounts,
         appSettings: loadedSettings,

@@ -66,6 +66,7 @@ interface BankContextType {
   state: BankState;
   currentUser: Profile | null;
   currentRole: UserRole | null;
+  isLoadingAuth: boolean;
   currentAccounts: Account[];
   currentCards: DebitCard[];
   currentTransactions: Transaction[];
@@ -171,6 +172,7 @@ const BankContext = createContext<BankContextType | undefined>(undefined);
 
 export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<BankState>(() => loadState());
+  const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(true);
 
   useEffect(() => {
     saveState(state);
@@ -217,7 +219,8 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
           }
         })
-        .catch((err) => console.warn('Supabase database sync note:', err));
+        .catch((err) => console.warn('Supabase database sync note:', err))
+        .finally(() => setIsLoadingAuth(false));
 
       // 2. Hydrate Auth session directly from Supabase
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -234,7 +237,8 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return prev;
           });
         }
-      }).catch((err) => console.warn('Supabase session load error:', err));
+      }).catch((err) => console.warn('Supabase session load error:', err))
+        .finally(() => setIsLoadingAuth(false));
 
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         if (session?.user) {
@@ -252,11 +256,14 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (event === 'SIGNED_OUT') {
           setState((prev) => ({ ...prev, currentUserId: null }));
         }
+        setIsLoadingAuth(false);
       });
 
       return () => {
         authListener.subscription.unsubscribe();
       };
+    } else {
+      setIsLoadingAuth(false);
     }
   }, []);
 
@@ -2958,6 +2965,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         state,
         currentUser,
         currentRole,
+        isLoadingAuth,
         currentAccounts,
         currentCards,
         currentTransactions,

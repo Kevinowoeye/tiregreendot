@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BankProvider, useBank } from './context/BankContext';
+import { isSupabaseConfigured, supabaseDb } from './lib/supabase';
+import { Profile } from './types';
 import { PublicNavbar } from './components/public/PublicNavbar';
 import { PublicFooter } from './components/public/PublicFooter';
 import { HomePage } from './components/public/HomePage';
@@ -40,7 +42,7 @@ import { ExportDeployModal } from './components/export/ExportDeployModal';
 import { ShieldCheck, Lock } from 'lucide-react';
 
 const BankAppInner: React.FC = () => {
-  const { currentUser, currentRole, switchCustomer, loginAsAdmin, state, logout } = useBank();
+  const { currentUser, currentRole, switchCustomer, loginAsAdmin, state, logout, isLoadingAuth } = useBank();
 
   // Read initial route from URL path, search query, or hash to prevent blank screens on direct navigation
   const getInitialPage = (): string => {
@@ -96,51 +98,100 @@ const BankAppInner: React.FC = () => {
     };
   }, []);
 
-  // Auto-login link handler supporting ?token=..., ?email=..., ?autologin=... and #autologin=...
+  // Auto-login link handler supporting ?token=..., ?email=..., ?autologin=... with session clearing & Supabase query
   useEffect(() => {
-    try {
-      const search = window.location.search || '';
-      const hash = window.location.hash || '';
-      const params = new URLSearchParams(search);
-      
-      const tokenParam = params.get('token');
-      const emailParam = params.get('email');
-      const autologinParam = params.get('autologin') || (hash.includes('autologin=') ? hash.split('autologin=')[1]?.split('&')[0] : null);
+    const handleAutoLogin = async () => {
+      try {
+        const search = window.location.search || '';
+        const hash = window.location.hash || '';
+        const params = new URLSearchParams(search);
+        
+        const tokenParam = params.get('token');
+        const emailParam = params.get('email');
+        const autologinParam = params.get('autologin') || (hash.includes('autologin=') ? hash.split('autologin=')[1]?.split('&')[0] : null);
 
-      const target = autologinParam || tokenParam || emailParam;
-      if (target) {
-        const decoded = decodeURIComponent(target);
-        const found = state.profiles.find(
-          (p) =>
-            (p as any)?.id === decoded ||
-            p.userId === decoded ||
-            (p?.customerId || '') === decoded ||
-            (p?.email || '').toLowerCase() === (decoded || '').toLowerCase()
-        );
-        if (found) {
-          switchCustomer(found.userId);
-          setPage('dashboard');
-          window.location.hash = '#dashboard';
+        const target = autologinParam || tokenParam || emailParam;
+        if (target) {
+          const decoded = decodeURIComponent(target).trim().toLowerCase();
+
+          // 1. Clear existing cached session data BEFORE loading the new user so old session data never leaks
+          try {
+            localStorage.removeItem('greendot_bank_state_v1');
+            sessionStorage.clear();
+          } catch (e) {
+            console.warn('Session clear note:', e);
+          }
+
+          // 2. Query Supabase explicitly for the user profile matching the email/token in the link
+          let found = null;
+          if (isSupabaseConfigured) {
+            try {
+              const dbProfiles = await supabaseDb.getTable<Profile>('profiles');
+              found = dbProfiles.find(
+                (p) =>
+                  (p as any)?.id?.toLowerCase() === decoded ||
+                  p.userId?.toLowerCase() === decoded ||
+                  p.customerId?.toLowerCase() === decoded ||
+                  p.email?.toLowerCase() === decoded
+              );
+            } catch (err) {
+              console.warn('Supabase query during auto-login failed:', err);
+            }
+          }
+
+          if (!found) {
+            found = state.profiles.find(
+              (p) =>
+                (p as any)?.id?.toLowerCase() === decoded ||
+                p.userId?.toLowerCase() === decoded ||
+                (p?.customerId || '').toLowerCase() === decoded ||
+                (p?.email || '').toLowerCase() === decoded
+            );
+          }
+
+          // 3. Immediately set that specific user object into active state before redirecting to dashboard
+          if (found) {
+            switchCustomer(found.userId);
+            setPage('dashboard');
+            window.location.hash = '#dashboard';
+          } else {
+            console.warn('Auto-login: invalid token or email parameter, redirecting to login');
+            setPage('login');
+          }
         }
+      } catch (err) {
+        console.warn('Auto-login error:', err);
+        setPage('login');
       }
-    } catch (err) {
-      console.warn('Auto-login error:', err);
-    }
+    };
+
+    handleAutoLogin();
   }, [state.profiles]);
 
-  // Automatically route to dashboard if customer logs in, or admin if admin
+  // Automatically route to dashboard if customer logs in, or admin if admin, and protect dashboard
   useEffect(() => {
     if (currentRole === 'admin' && page !== 'admin') {
       setPage('admin');
     } else if (currentUser && (page === 'login' || page === 'activate')) {
       setPage('dashboard');
+    } else if (page === 'dashboard' && !currentUser && !isLoadingAuth) {
+      setPage('login');
     }
-  }, [currentRole, currentUser]);
+  }, [currentRole, currentUser, page, isLoadingAuth]);
 
   // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page, dashboardTab]);
+
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white space-y-4">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-sm font-medium tracking-wide text-slate-300">Initializing Greendot Secure Session...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
