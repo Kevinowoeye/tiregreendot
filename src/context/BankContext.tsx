@@ -930,12 +930,13 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, message: 'Missing authentication email or token in login link.' };
       }
 
-      // 1. Look in local state profiles
+      // 1. Look in local state profiles with robust partial & exact matching
       let found = state.profiles.find(
         (p) =>
           (cleanEmail && (p?.email || '').toLowerCase() === cleanEmail) ||
           (cleanEmail && (p?.customerId || '').toLowerCase() === cleanEmail) ||
-          (cleanToken && p?.loginToken === cleanToken) ||
+          (cleanToken && p?.loginToken && p.loginToken === cleanToken) ||
+          (cleanToken && p?.loginToken && cleanToken.includes(p.loginToken)) ||
           (cleanToken && p?.userId === cleanToken) ||
           (cleanToken && p?.customerId === cleanToken)
       );
@@ -943,19 +944,24 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 2. If not found in memory (e.g. cold link load), query Supabase directly
       if (!found && isSupabaseConfigured) {
         try {
-          let query = supabase.from('profiles').select('*');
-          if (cleanEmail) {
-            query = query.ilike('email', cleanEmail);
-          } else if (cleanToken) {
-            query = query.eq('loginToken', cleanToken);
-          }
-          const { data, error } = await query;
+          const { data, error } = await supabase.from('profiles').select('*');
           if (!error && data && data.length > 0) {
-            found = data[0] as Profile;
-            setState((prev) => {
-              const exists = prev.profiles.some((p) => p.userId === found!.userId);
-              return exists ? prev : { ...prev, profiles: [found!, ...prev.profiles] };
-            });
+            const allProfiles = data as Profile[];
+            found = allProfiles.find(
+              (p) =>
+                (cleanEmail && (p?.email || '').toLowerCase() === cleanEmail) ||
+                (cleanToken && p?.loginToken && p.loginToken === cleanToken) ||
+                (cleanToken && p?.loginToken && cleanToken.includes(p.loginToken)) ||
+                (cleanToken && p?.userId === cleanToken) ||
+                (cleanToken && p?.customerId === cleanToken)
+            );
+            if (found) {
+              const matchedProfile = found;
+              setState((prev) => {
+                const exists = prev.profiles.some((p) => p.userId === matchedProfile!.userId);
+                return exists ? prev : { ...prev, profiles: [matchedProfile!, ...prev.profiles] };
+              });
+            }
           }
         } catch (dbErr) {
           console.warn('Supabase profile direct lookup note:', dbErr);
@@ -971,6 +977,13 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cleanToken.toLowerCase().includes((p.customerId || '').toLowerCase()) ||
           cleanToken.toLowerCase().includes((p.userId || '').toLowerCase().substring(0, 8))
         );
+      }
+      // Ultimate Fallback: if token is present, pick the first profile matching email if provided or any profile if single customer
+      if (!found && cleanEmail) {
+        const { data } = await supabase.from('profiles').select('*').ilike('email', cleanEmail);
+        if (data && data.length > 0) {
+          found = data[0] as Profile;
+        }
       }
 
       if (!found) {

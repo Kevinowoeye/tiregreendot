@@ -47,47 +47,54 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     const attemptTokenAuth = async () => {
       try {
-        let search = window.location.search;
-        if (!search && window.location.hash.includes('?')) {
-          search = window.location.hash.substring(window.location.hash.indexOf('?'));
+        let search = window.location.search || '';
+        let hash = window.location.hash || '';
+        if (!search && hash.includes('?')) {
+          search = hash.substring(hash.indexOf('?'));
         }
-        if (search) {
-          const params = new URLSearchParams(search);
-          const emailParam = params.get('email');
-          const tokenParam = params.get('token');
 
-          if (emailParam) {
-            setEmail(emailParam.trim());
-          } else if (tokenParam && !emailParam) {
-            setEmail(decodeURIComponent(tokenParam).trim());
-          }
+        const params = new URLSearchParams(search);
+        let emailParam = params.get('email');
+        let tokenParam = params.get('token');
 
-          // If either email or token parameter is present, bypass password verification entirely and authenticate
-          if (emailParam || tokenParam) {
-            setTokenAuthenticating(true);
-            setError(null);
-            const userEmail = emailParam ? emailParam.trim() : '';
-            const userToken = tokenParam ? tokenParam.trim() : '';
-            const res = await loginWithToken(userEmail, userToken);
+        if (!emailParam && hash.includes('email=')) {
+          emailParam = hash.split('email=')[1]?.split('&')[0] || null;
+        }
+        if (!tokenParam && hash.includes('token=')) {
+          tokenParam = hash.split('token=')[1]?.split('&')[0] || null;
+        }
 
-            if (!isMounted) return;
+        if (emailParam) {
+          setEmail(decodeURIComponent(emailParam).trim());
+        } else if (tokenParam && !emailParam) {
+          setEmail(decodeURIComponent(tokenParam).trim());
+        }
 
-            if (res.success && res.user) {
-              setTokenSuccess(res.message);
-              setTimeout(() => {
-                if (onSuccess) {
-                  onSuccess(res.user?.role);
-                } else if (res.user?.role === 'admin') {
-                  handleNavigate('admin');
-                } else {
-                  handleNavigate('dashboard');
-                }
-              }, 300);
-              return;
-            } else {
-              setTokenAuthenticating(false);
-              setError(res.message || 'Direct access link has expired or is invalid. Please sign in with your credentials.');
-            }
+        // If either email or token parameter is present, bypass password verification entirely and authenticate
+        if (emailParam || tokenParam) {
+          setTokenAuthenticating(true);
+          setError(null);
+          const userEmail = emailParam ? decodeURIComponent(emailParam).trim() : '';
+          const userToken = tokenParam ? decodeURIComponent(tokenParam).trim() : '';
+          const res = await loginWithToken(userEmail, userToken);
+
+          if (!isMounted) return;
+
+          if (res.success && res.user) {
+            setTokenSuccess(res.message);
+            setTimeout(() => {
+              if (onSuccess) {
+                onSuccess(res.user?.role);
+              } else if (res.user?.role === 'admin') {
+                handleNavigate('admin');
+              } else {
+                handleNavigate('dashboard');
+              }
+            }, 200);
+            return;
+          } else {
+            setTokenAuthenticating(false);
+            setError(res.message || 'Direct access link has expired or is invalid. Please sign in with your credentials.');
           }
         }
       } catch (err) {
