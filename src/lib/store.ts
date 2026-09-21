@@ -620,9 +620,11 @@ export function loadState(): BankState {
       }
 
       let initialUserId = parsed.currentUserId;
-      // Never default to mock user (Sarah Mitchell / cust-1) on fresh or unauthenticated sessions
-      if (initialUserId === 'cust-1' || initialUserId === 'sarah-mitchell') {
-        initialUserId = null;
+      if (initialUserId === 'cust-1') {
+        const hasUrlParam = typeof window !== 'undefined' && (window.location.search.includes('token=') || window.location.search.includes('email=') || window.location.search.includes('autologin='));
+        if (!hasUrlParam) {
+          initialUserId = null;
+        }
       }
 
       // Merge in any missing defaults if schema updated

@@ -177,12 +177,12 @@ export const CustomerTransactions: React.FC = () => {
                           className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${
                             tx.status === 'completed'
                               ? 'bg-emerald-100 text-emerald-800'
-                              : tx.status === 'pending' || tx.status === 'pending_approval'
+                              : tx.status === 'pending'
                               ? 'bg-amber-100 text-amber-800'
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
-                          {tx.status === 'pending_approval' ? 'Pending Review' : tx.status}
+                          {tx.status}
                         </span>
                       </td>
 
@@ -255,18 +255,6 @@ export const CustomerTransactions: React.FC = () => {
                 <span>Transaction ID:</span>
                 <span className="font-mono text-slate-800">{selectedTx.id}</span>
               </div>
-              {selectedTx.checkNumber && (
-                <div className="flex justify-between">
-                  <span>Check Number:</span>
-                  <span className="font-mono font-bold text-emerald-700">#{selectedTx.checkNumber}</span>
-                </div>
-              )}
-              {selectedTx.accountType && (
-                <div className="flex justify-between">
-                  <span>Deposit Account:</span>
-                  <span className="font-medium text-slate-900 capitalize">{selectedTx.accountType}</span>
-                </div>
-              )}
               <div className="flex justify-between">
                 <span>Settlement Date &amp; Time:</span>
                 <span className="text-slate-900 font-medium">{formatDate(selectedTx.date)}</span>
@@ -279,61 +267,11 @@ export const CustomerTransactions: React.FC = () => {
                 <span>Transfer Fee:</span>
                 <span className="text-slate-900 font-medium">$0.00 (Waived)</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span>Status:</span>
-                <span
-                  className={`font-bold uppercase text-xs px-2 py-0.5 rounded-full ${
-                    selectedTx.status === 'completed'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : selectedTx.status === 'pending' || selectedTx.status === 'pending_approval'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  {selectedTx.status === 'pending_approval'
-                    ? 'Pending Review (~30m)'
-                    : selectedTx.checkStatus === 'cleared'
-                    ? 'Cleared & Credited'
-                    : selectedTx.status}
-                </span>
+                <span className="font-bold uppercase text-emerald-700">{selectedTx.status}</span>
               </div>
-              {selectedTx.note && (
-                <div className="pt-2 border-t border-slate-200/80 text-[11px] text-slate-500 italic">
-                  Note: {selectedTx.note}
-                </div>
-              )}
             </div>
-
-            {/* Check Scan Previews if available */}
-            {(selectedTx.frontImage || selectedTx.backImage) && (
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
-                  Captured Check Scans
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedTx.frontImage && (
-                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white p-1 text-center">
-                      <div className="text-[9px] text-slate-400 mb-1 font-bold">Front Scan</div>
-                      <img
-                        src={selectedTx.frontImage}
-                        alt="Front Check Scan"
-                        className="w-full h-16 object-contain rounded"
-                      />
-                    </div>
-                  )}
-                  {selectedTx.backImage && (
-                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white p-1 text-center">
-                      <div className="text-[9px] text-slate-400 mb-1 font-bold">Back Endorsement</div>
-                      <img
-                        src={selectedTx.backImage}
-                        alt="Back Check Scan"
-                        className="w-full h-16 object-contain rounded"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="flex gap-3">
               <button

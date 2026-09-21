@@ -27,87 +27,49 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateHome,
   onNavigateRegister,
 }) => {
-  const { login, loginWithToken, requestPasswordReset } = useBank();
+  const { login } = useBank();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
-  const [tokenAuthenticating, setTokenAuthenticating] = useState(false);
-  const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Parse URL search parameters on mount for ?email= or ?token= direct magic login links
+  // Parse URL search parameters on mount for magic auto-fill login link and token parameters
   useEffect(() => {
-    let isMounted = true;
-
-    const attemptTokenAuth = async () => {
-      try {
-        let search = window.location.search || '';
-        let hash = window.location.hash || '';
-        if (!search && hash.includes('?')) {
-          search = hash.substring(hash.indexOf('?'));
-        }
-
+    try {
+      let search = window.location.search;
+      if (!search && window.location.hash.includes('?')) {
+        search = window.location.hash.substring(window.location.hash.indexOf('?'));
+      }
+      if (search) {
         const params = new URLSearchParams(search);
-        let emailParam = params.get('email');
-        let tokenParam = params.get('token');
-
-        if (!emailParam && hash.includes('email=')) {
-          emailParam = hash.split('email=')[1]?.split('&')[0] || null;
-        }
-        if (!tokenParam && hash.includes('token=')) {
-          tokenParam = hash.split('token=')[1]?.split('&')[0] || null;
-        }
+        const emailParam = params.get('email');
+        const passParam = params.get('password');
+        const tokenParam = params.get('token');
 
         if (emailParam) {
-          setEmail(decodeURIComponent(emailParam).trim());
-        } else if (tokenParam && !emailParam) {
+          setEmail(emailParam.trim());
+        } else if (tokenParam) {
+          // If token is customer ID / email representation
           setEmail(decodeURIComponent(tokenParam).trim());
         }
-
-        // If either email or token parameter is present, bypass password verification entirely and authenticate
-        if (emailParam || tokenParam) {
-          setTokenAuthenticating(true);
-          setError(null);
-          const userEmail = emailParam ? decodeURIComponent(emailParam).trim() : '';
-          const userToken = tokenParam ? decodeURIComponent(tokenParam).trim() : '';
-          const res = await loginWithToken(userEmail, userToken);
-
-          if (!isMounted) return;
-
-          if (res.success && res.user) {
-            setTokenSuccess(res.message);
-            setTimeout(() => {
-              if (onSuccess) {
-                onSuccess(res.user?.role);
-              } else if (res.user?.role === 'admin') {
-                handleNavigate('admin');
-              } else {
-                handleNavigate('dashboard');
-              }
-            }, 200);
-            return;
-          } else {
-            setTokenAuthenticating(false);
-            setError(res.message || 'Direct access link has expired or is invalid. Please sign in with your credentials.');
-          }
+        if (passParam) {
+          setPassword(passParam.trim());
         }
-      } catch (err) {
-        console.warn('Unable to parse URL parameters:', err);
-        if (isMounted) setTokenAuthenticating(false);
+        if (emailParam || tokenParam) {
+          setAutoFilled(true);
+          // Set focus on submit button to enable instant one-click login
+          setTimeout(() => {
+            submitButtonRef.current?.focus();
+          }, 150);
+        }
       }
-    };
-
-    attemptTokenAuth();
-
-    return () => {
-      isMounted = false;
-    };
+    } catch (err) {
+      console.warn('Unable to parse URL parameters:', err);
+    }
   }, []);
 
   const handleNavigate = (route: string) => {
@@ -274,12 +236,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {resetSent ? (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
                   <div className="font-bold">Password Reset Dispatched!</div>
-                  <div>{resetMessage || `If an account matches ${email}, a temporary password and instant login link have been dispatched to your email.`}</div>
+                  <div>If an account matches {email}, a recovery token was logged to your inbox.</div>
                   <button
                     onClick={() => {
                       setIsForgotPassword(false);
                       setResetSent(false);
-                      setResetMessage(null);
                     }}
                     className="mt-2 text-emerald-700 font-bold underline block"
                   >
@@ -288,20 +249,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
               ) : (
                 <form
-                  onSubmit={async (e) => {
+                  onSubmit={(e) => {
                     e.preventDefault();
-                    if (!email) return;
-                    setResetLoading(true);
-                    setError(null);
-                    try {
-                      const res = await requestPasswordReset(email);
-                      setResetMessage(res.message);
-                      setResetSent(true);
-                    } catch (err: any) {
-                      setError(err.message || 'Failed to dispatch password reset');
-                    } finally {
-                      setResetLoading(false);
-                    }
+                    setResetSent(true);
                   }}
                   className="space-y-4"
                 >
@@ -317,10 +267,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </div>
                   <button
                     type="submit"
-                    disabled={resetLoading}
-                    className="w-full py-3.5 gradient-primary text-white font-bold text-sm rounded-xl shadow transition-all disabled:opacity-50"
+                    className="w-full py-3.5 gradient-primary text-white font-bold text-sm rounded-xl shadow transition-all"
                   >
-                    {resetLoading ? 'Sending Recovery Email...' : 'Send Recovery Email'}
+                    Send Recovery Email
                   </button>
                   <button
                     type="button"
@@ -343,26 +292,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </p>
               </div>
 
-              {tokenAuthenticating && (
-                <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-3 text-xs text-emerald-900 font-semibold shadow-xs animate-pulse">
-                  <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                  <div>
-                    <div className="font-bold text-emerald-950">Authenticating Direct Access Link...</div>
-                    <div className="text-[11px] text-emerald-700 font-normal">Signing you securely into your Greendot dashboard without a password.</div>
-                  </div>
-                </div>
-              )}
-
-              {tokenSuccess && (
-                <div className="p-3.5 bg-emerald-50 border border-emerald-400 rounded-xl flex items-center gap-2.5 text-xs text-emerald-900 font-semibold shadow-xs animate-fade-in">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold">Access Token Verified!</span> Logging you in...
-                  </div>
-                </div>
-              )}
-
-              {autoFilled && !tokenAuthenticating && !tokenSuccess && (
+              {autoFilled && (
                 <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 font-semibold animate-fade-in shadow-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   <span>Credentials pre-filled from your welcome link. Click below to sign in.</span>

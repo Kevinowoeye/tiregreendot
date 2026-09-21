@@ -12,19 +12,16 @@ import {
   Check,
   X,
   RotateCcw,
-  Eye,
-  FileText,
 } from 'lucide-react';
 import { useBank } from '../../context/BankContext';
 import { PinDialog } from './PinDialog';
-import { Transaction } from '../../types';
 
 interface CustomerCheckDepositProps {
   onSuccessNavigate?: () => void;
 }
 
 export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSuccessNavigate }) => {
-  const { currentUser, submitCheckDeposit, customerTransactions } = useBank();
+  const { currentUser, submitCheckDeposit } = useBank();
   const [accountType, setAccountType] = useState<'checking' | 'savings'>('checking');
   const [amount, setAmount] = useState<string>('');
   const [checkNumber, setCheckNumber] = useState<string>('');
@@ -35,7 +32,6 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [selectedCheckPreview, setSelectedCheckPreview] = useState<Transaction | null>(null);
   const [depositSuccess, setDepositSuccess] = useState<{
     reference: string;
     amount: number;
@@ -51,10 +47,6 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
   const backUploadInputRef = useRef<HTMLInputElement>(null);
 
   if (!currentUser) return null;
-
-  const userCheckDeposits = (customerTransactions || []).filter(
-    (t) => t.category === 'mobile_deposit' || t.description?.toLowerCase().includes('check')
-  );
 
   // Handle actual native camera capture or image upload
   const handleImageSelected = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
@@ -279,8 +271,8 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-2">
               <span className="text-slate-500">Current Status:</span>
-              <span className="font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 uppercase text-[10px] tracking-wide">
-                Pending Underwriting Review (~30m)
+              <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                pending_approval
               </span>
             </div>
             <div className="flex justify-between">
@@ -590,215 +582,6 @@ export const CustomerCheckDeposit: React.FC<CustomerCheckDepositProps> = ({ onSu
                 <div>✓ Estimated Review: ~30 mins</div>
                 <div>✓ Direct Balance Credit on Approval</div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= RECENT MOBILE CHECK DEPOSITS ================= */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-base font-bold text-slate-900">Recent Mobile Check Deposits</h2>
-            <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-bold font-mono">
-              {userCheckDeposits.length}
-            </span>
-          </div>
-          {onSuccessNavigate && (
-            <button
-              onClick={onSuccessNavigate}
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
-            >
-              <span>Full Ledger</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {userCheckDeposits.length === 0 ? (
-          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            <p className="text-xs text-slate-500">
-              No mobile check deposits submitted yet. Deposited checks and review statuses will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Reference / ID</th>
-                  <th className="py-2.5 px-3">Check #</th>
-                  <th className="py-2.5 px-3">Account</th>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-right">Amount</th>
-                  <th className="py-2.5 px-3 text-center">Scan Preview</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {userCheckDeposits.map((tx) => {
-                  const isPending =
-                    tx.status === 'pending' ||
-                    tx.status === 'pending_approval' ||
-                    tx.checkStatus === 'pending' ||
-                    tx.checkStatus === 'pending_approval';
-                  const isCleared = tx.status === 'completed' || tx.checkStatus === 'cleared';
-                  const isRejected = tx.status === 'rejected' || tx.checkStatus === 'rejected';
-
-                  return (
-                    <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 font-mono font-bold text-slate-900">
-                        {tx.reference || tx.id}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-slate-700 font-medium">
-                        {tx.checkNumber ? `#${tx.checkNumber}` : '—'}
-                      </td>
-                      <td className="py-3 px-3 capitalize text-slate-600 font-medium">
-                        {tx.accountType || 'checking'}
-                      </td>
-                      <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
-                        {new Date(tx.date || tx.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-3">
-                        {isCleared && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full uppercase">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>Cleared &amp; Credited</span>
-                          </span>
-                        )}
-                        {isPending && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full uppercase animate-pulse">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>Underwriting Review (~30m)</span>
-                          </span>
-                        )}
-                        {isRejected && (
-                          <span
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-red-800 bg-red-100 px-2.5 py-1 rounded-full uppercase"
-                            title={tx.note}
-                          >
-                            <AlertCircle className="w-3 h-3 text-red-600" />
-                            <span>Rejected</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
-                        +${Number(tx.amount).toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        {tx.frontImage ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCheckPreview(tx)}
-                            className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 transition-colors inline-flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
-                            title="View Check Images"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View Scans</span>
-                          </button>
-                        ) : (
-                          <span className="text-slate-400 text-[10px] italic">No scan</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Customer Check Scans Preview Modal */}
-      {selectedCheckPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Check #{selectedCheckPreview.checkNumber || selectedCheckPreview.id}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedCheckPreview(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="text-[10px] text-slate-400">Amount</div>
-                <div className="font-bold text-emerald-700 font-mono text-sm">
-                  ${Number(selectedCheckPreview.amount).toFixed(2)}
-                </div>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="text-[10px] text-slate-400">Status</div>
-                <div className="font-bold text-slate-900 uppercase text-[11px]">
-                  {selectedCheckPreview.status === 'completed'
-                    ? 'Cleared & Credited'
-                    : selectedCheckPreview.status === 'pending_approval' || selectedCheckPreview.status === 'pending'
-                    ? 'Underwriting Review'
-                    : 'Rejected'}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  Front of Check
-                </div>
-                {selectedCheckPreview.frontImage ? (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-1 flex items-center justify-center max-h-48">
-                    <img
-                      src={selectedCheckPreview.frontImage}
-                      alt="Front Check"
-                      className="max-h-44 object-contain rounded"
-                    />
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-xs text-slate-400">No front image</div>
-                )}
-              </div>
-
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  Back Endorsement
-                </div>
-                {selectedCheckPreview.backImage ? (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-1 flex items-center justify-center max-h-48">
-                    <img
-                      src={selectedCheckPreview.backImage}
-                      alt="Back Check"
-                      className="max-h-44 object-contain rounded"
-                    />
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-xs text-slate-400">No back image</div>
-                )}
-              </div>
-            </div>
-
-            {selectedCheckPreview.note && (
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-600">
-                <span className="font-semibold">Auditor Note:</span> {selectedCheckPreview.note}
-              </div>
-            )}
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedCheckPreview(null)}
-                className="px-5 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

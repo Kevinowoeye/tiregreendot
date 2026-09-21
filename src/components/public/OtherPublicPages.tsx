@@ -629,7 +629,7 @@ export const ContactPage: React.FC = () => {
                     required
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="e.g. Jonathan Reynolds"
+                    placeholder="Sarah Mitchell"
                     className="w-full mt-1 p-3 text-sm border border-slate-200 rounded-xl focus:border-emerald-600 outline-none"
                   />
                 </div>
