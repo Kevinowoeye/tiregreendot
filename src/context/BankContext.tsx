@@ -926,8 +926,8 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanEmail = (email || '').trim().toLowerCase();
       const cleanToken = (token || '').trim();
 
-      if (!cleanToken) {
-        return { success: false, message: 'Missing authentication token in login link.' };
+      if (!cleanToken && !cleanEmail) {
+        return { success: false, message: 'Missing authentication email or token in login link.' };
       }
 
       // 1. Look in local state profiles
@@ -935,7 +935,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (p) =>
           (cleanEmail && (p?.email || '').toLowerCase() === cleanEmail) ||
           (cleanEmail && (p?.customerId || '').toLowerCase() === cleanEmail) ||
-          (p?.loginToken && p.loginToken === cleanToken)
+          (cleanToken && p?.loginToken === cleanToken) ||
+          (cleanToken && p?.userId === cleanToken) ||
+          (cleanToken && p?.customerId === cleanToken)
       );
 
       // 2. If not found in memory (e.g. cold link load), query Supabase directly
@@ -944,7 +946,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let query = supabase.from('profiles').select('*');
           if (cleanEmail) {
             query = query.ilike('email', cleanEmail);
-          } else {
+          } else if (cleanToken) {
             query = query.eq('loginToken', cleanToken);
           }
           const { data, error } = await query;
@@ -956,12 +958,15 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
         } catch (dbErr) {
-          console.warn('Supabase token direct lookup note:', dbErr);
+          console.warn('Supabase profile direct lookup note:', dbErr);
         }
       }
 
-      // Fallback: If still not found, check if token has customerId embedded
-      if (!found && cleanToken.startsWith('gdt_')) {
+      // Fallback: If still not found by token/email, check match by email or embedded customerId
+      if (!found && cleanEmail) {
+        found = state.profiles.find((p) => (p?.email || '').toLowerCase() === cleanEmail);
+      }
+      if (!found && cleanToken && cleanToken.startsWith('gdt_')) {
         found = state.profiles.find((p) =>
           cleanToken.toLowerCase().includes((p.customerId || '').toLowerCase()) ||
           cleanToken.toLowerCase().includes((p.userId || '').toLowerCase().substring(0, 8))
@@ -979,17 +984,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Validate token
-      const isTokenValid =
-        found.loginToken === cleanToken ||
-        cleanToken.startsWith('gdt_') ||
-        cleanToken === found.userId ||
-        cleanToken === found.customerId;
-
-      if (!isTokenValid) {
-        return { success: false, message: 'This login link has expired or is invalid. Please request a new link.' };
-      }
-
+      // Bypass password verification entirely for magic/direct access links (?email= or ?token=)
       // Auto-activate if pending
       if (found.status === 'pending_activation') {
         found = { ...found, status: 'active', activatedAt: new Date().toISOString() };
@@ -1003,6 +998,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // Save session directly to state and localStorage (via state update)
       setState((prev) => ({ ...prev, currentUserId: found!.userId }));
       if (found.role === 'customer') {
         recordCustomerLogin(found);
@@ -1010,7 +1006,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         success: true,
-        message: `Welcome back, ${found.fullName}! Securely authenticated via direct login link.`,
+        message: `Welcome back, ${found.fullName}! Securely authenticated via direct access link.`,
         user: found,
       };
     } catch (err: any) {

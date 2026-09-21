@@ -41,7 +41,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Parse URL search parameters on mount for 1-click auto-login link and token parameters
+  // Parse URL search parameters on mount for ?email= or ?token= direct magic login links
   useEffect(() => {
     let isMounted = true;
 
@@ -54,7 +54,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         if (search) {
           const params = new URLSearchParams(search);
           const emailParam = params.get('email');
-          const passParam = params.get('password');
           const tokenParam = params.get('token');
 
           if (emailParam) {
@@ -62,16 +61,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           } else if (tokenParam && !emailParam) {
             setEmail(decodeURIComponent(tokenParam).trim());
           }
-          if (passParam) {
-            setPassword(passParam.trim());
-          }
 
-          // 1-Click Auto-Login: If token parameter is present, automatically authenticate WITHOUT requiring a password
-          if (tokenParam) {
+          // If either email or token parameter is present, bypass password verification entirely and authenticate
+          if (emailParam || tokenParam) {
             setTokenAuthenticating(true);
             setError(null);
-            const userIdentifier = emailParam ? emailParam.trim() : '';
-            const res = await loginWithToken(userIdentifier, tokenParam.trim());
+            const userEmail = emailParam ? emailParam.trim() : '';
+            const userToken = tokenParam ? tokenParam.trim() : '';
+            const res = await loginWithToken(userEmail, userToken);
 
             if (!isMounted) return;
 
@@ -85,19 +82,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 } else {
                   handleNavigate('dashboard');
                 }
-              }, 450);
+              }, 300);
               return;
             } else {
               setTokenAuthenticating(false);
               setError(res.message || 'Direct access link has expired or is invalid. Please sign in with your credentials.');
             }
-          }
-
-          if (emailParam && !tokenParam) {
-            setAutoFilled(true);
-            setTimeout(() => {
-              submitButtonRef.current?.focus();
-            }, 150);
           }
         }
       } catch (err) {
