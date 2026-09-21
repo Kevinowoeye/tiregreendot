@@ -35,7 +35,10 @@ export const CustomerTransfer: React.FC<CustomerTransferProps> = ({ onTabChange 
   const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string>(
     beneficiaries[0]?.id || ''
   );
-  const [targetBank, setTargetBank] = useState<string>(SUPPORTED_BANKS[0]?.name || 'Chase Bank');
+  const [targetBank, setTargetBank] = useState<string>(SUPPORTED_BANKS[0]?.name || 'JPMorgan Chase');
+  const [bankSearchQuery, setBankSearchQuery] = useState<string>('');
+  const [isOtherBank, setIsOtherBank] = useState<boolean>(false);
+  const [customBankName, setCustomBankName] = useState<string>('');
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [recipientName, setRecipientName] = useState<string>('');
   const [amount, setAmount] = useState<number>(250);
@@ -117,7 +120,7 @@ export const CustomerTransfer: React.FC<CustomerTransferProps> = ({ onTabChange 
 
     // Determine recipient details
     let finalRecipient = recipientName;
-    let finalBank = targetBank;
+    let finalBank = recipientType === 'beneficiary' ? '' : (isOtherBank ? customBankName : targetBank);
     let finalAcc = accountNumber;
 
     if (recipientType === 'beneficiary') {
@@ -127,6 +130,11 @@ export const CustomerTransfer: React.FC<CustomerTransferProps> = ({ onTabChange 
         finalBank = b.bankName;
         finalAcc = b.accountNumber;
       }
+    }
+
+    if (recipientType === 'manual' && isOtherBank && !customBankName.trim()) {
+      setFeedback({ text: 'Please enter the name of your custom financial institution.', ok: false });
+      return;
     }
 
     if (!finalRecipient || !finalAcc) {
@@ -142,7 +150,7 @@ export const CustomerTransfer: React.FC<CustomerTransferProps> = ({ onTabChange 
     setPinDialogOpen(false);
 
     let finalRecipient = recipientName;
-    let finalBank = targetBank;
+    let finalBank = recipientType === 'beneficiary' ? '' : (isOtherBank ? customBankName : targetBank);
     let finalAcc = accountNumber;
 
     if (recipientType === 'beneficiary') {
@@ -326,19 +334,69 @@ export const CustomerTransfer: React.FC<CustomerTransferProps> = ({ onTabChange 
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-700">Destination Bank</label>
-                  <select
-                    value={targetBank}
-                    onChange={(e) => setTargetBank(e.target.value)}
-                    className="w-full mt-1 p-3 text-sm border border-slate-200 rounded-xl focus:border-emerald-600 outline-none font-medium bg-white"
-                  >
-                    {SUPPORTED_BANKS.map((b) => (
-                      <option key={b.id} value={b.name}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
+                  <label className="text-xs font-bold text-slate-700">Destination Bank (USA, Canada, Europe &amp; Global)</label>
+                  <div className="mt-1 space-y-2">
+                    <input
+                      type="text"
+                      value={bankSearchQuery}
+                      onChange={(e) => setBankSearchQuery(e.target.value)}
+                      placeholder="Search bank name or SWIFT code (e.g. Chase, RBC, HSBC)..."
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-600 outline-none"
+                    />
+                    <select
+                      value={isOtherBank ? 'other' : targetBank}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'other') {
+                          setIsOtherBank(true);
+                        } else {
+                          setIsOtherBank(false);
+                          setTargetBank(val);
+                        }
+                      }}
+                      className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:border-emerald-600 outline-none font-medium bg-white"
+                    >
+                      <optgroup label="USA Financial Institutions">
+                        {SUPPORTED_BANKS.filter(b => b.region === 'USA' && (b.name.toLowerCase().includes(bankSearchQuery.toLowerCase()) || b.code.toLowerCase().includes(bankSearchQuery.toLowerCase()))).map((b) => (
+                          <option key={b.id} value={b.name}>
+                            {b.name} ({b.code})
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Canada Financial Institutions">
+                        {SUPPORTED_BANKS.filter(b => b.region === 'CANADA' && (b.name.toLowerCase().includes(bankSearchQuery.toLowerCase()) || b.code.toLowerCase().includes(bankSearchQuery.toLowerCase()))).map((b) => (
+                          <option key={b.id} value={b.name}>
+                            {b.name} ({b.code})
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Europe Financial Institutions">
+                        {SUPPORTED_BANKS.filter(b => b.region === 'EUROPE' && (b.name.toLowerCase().includes(bankSearchQuery.toLowerCase()) || b.code.toLowerCase().includes(bankSearchQuery.toLowerCase()))).map((b) => (
+                          <option key={b.id} value={b.name}>
+                            {b.name} ({b.code})
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Other Options">
+                        <option value="other">Other Bank (Type Manually)</option>
+                      </optgroup>
+                    </select>
+                  </div>
                 </div>
+
+                {isOtherBank && (
+                  <div className="animate-fade-in">
+                    <label className="text-xs font-bold text-slate-700">Custom Bank Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={customBankName}
+                      onChange={(e) => setCustomBankName(e.target.value)}
+                      placeholder="Enter full name of financial institution"
+                      className="w-full mt-1 p-3 text-sm border border-emerald-300 bg-emerald-50/30 rounded-xl focus:border-emerald-600 outline-none"
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
