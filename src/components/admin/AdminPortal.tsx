@@ -140,6 +140,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     address: '',
     accountTier: 'tier_1' as AccountTier,
     hasVisaCard: true,
+    cardMinLoad: 200,
   });
 
   const [fundForm, setFundForm] = useState({
@@ -424,6 +425,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       address: c?.address || '',
       accountTier: c?.accountTier || 'tier_1',
       hasVisaCard: c?.hasVisaCard ?? false,
+      cardMinLoad: Number(c?.cardMinLoad ?? (c as any)?.card_min_load ?? 200),
     });
     setActionModal('edit');
   };
@@ -2955,6 +2957,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   type="text"
                   value={editForm.address}
                   onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  className="w-full mt-1 p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300">Required Minimum Card Load Amount ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={editForm.cardMinLoad}
+                  onChange={(e) => setEditForm({ ...editForm, cardMinLoad: parseFloat(e.target.value) || 200 })}
                   className="w-full mt-1 p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white outline-none"
                 />
               </div>

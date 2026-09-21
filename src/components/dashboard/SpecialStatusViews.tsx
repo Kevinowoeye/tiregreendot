@@ -41,7 +41,7 @@ export const HowToGetCardView: React.FC<{ onTabChange?: (tab: string) => void }>
             How to Get &amp; Link Your Gold Visa Card
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100 max-w-xl">
-            Follow our secure 5-step retail acquisition and verification guide to unlock instant wire transfers, bill pay, and mobile recharges.
+            Follow our secure 6-step retail acquisition and verification guide to unlock instant wire transfers, bill pay, and mobile recharges.
           </p>
         </div>
       </div>
@@ -65,10 +65,10 @@ export const HowToGetCardView: React.FC<{ onTabChange?: (tab: string) => void }>
           </div>
         </div>
 
-        {/* Right 5-Step Guide */}
+        {/* Right 6-Step Guide */}
         <div className="md:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
           <h3 className="font-display font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
-            5-Step Retail &amp; Verification Guide
+            6-Step Retail &amp; Verification Guide
           </h3>
 
           <div className="space-y-4">
@@ -97,8 +97,20 @@ export const HowToGetCardView: React.FC<{ onTabChange?: (tab: string) => void }>
             </div>
 
             <div className="flex items-start gap-3.5">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-800 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
                 3
+              </div>
+              <div>
+                <div className="text-xs font-bold text-rose-900">DO NOT Activate in Store (CRITICAL)</div>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  Do NOT request the store cashier to activate or register the card at the register terminal. If activated in-store, our system will be unable to link the card to your online account.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                4
               </div>
               <div>
                 <div className="text-xs font-bold text-slate-900">Take Clear Photo</div>
@@ -110,7 +122,7 @@ export const HowToGetCardView: React.FC<{ onTabChange?: (tab: string) => void }>
 
             <div className="flex items-start gap-3.5">
               <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                4
+                5
               </div>
               <div>
                 <div className="text-xs font-bold text-slate-900">Send to Support Concierge</div>
@@ -122,7 +134,7 @@ export const HowToGetCardView: React.FC<{ onTabChange?: (tab: string) => void }>
 
             <div className="flex items-start gap-3.5">
               <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                5
+                6
               </div>
               <div>
                 <div className="text-xs font-bold text-slate-900">Admin Verification &amp; Instant Activation</div>

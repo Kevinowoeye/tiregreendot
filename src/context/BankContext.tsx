@@ -326,6 +326,49 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const unreadNotificationCount = currentNotifications.filter((n) => !n.isRead && !n.read).length;
 
+  const recordCustomerLogin = (user: Profile) => {
+    if (!user || user.role === 'admin') return;
+    const now = new Date().toISOString();
+    const custName = user.fullName || (user as any).name || 'Customer';
+    const custId = user.customerId || user.userId;
+    
+    const audit: AuditLog = {
+      id: 'audit-' + Date.now(),
+      adminName: 'System Security',
+      adminId: 'system',
+      action: 'CUSTOMER_LOGIN',
+      targetType: 'Profile',
+      targetId: user.userId,
+      targetName: custName,
+      details: { email: user.email, customerId: custId, timestamp: now },
+      createdAt: now,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      auditLogs: [audit, ...prev.auditLogs],
+    }));
+
+    // Dispatch Gmail alert to greendot.bank.supportmail@gmail.com
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: 'greendot.bank.supportmail@gmail.com',
+        subject: `[Admin Alert] Customer Login: ${custName} (${custId})`,
+        html: `
+          <div style="font-family:sans-serif; padding:20px; background:#f4f9f5; border-radius:12px; border:1px solid #22c55e; max-width:600px; margin:0 auto;">
+            <h3 style="color:#0f3d1d; margin-top:0;">🔒 Admin Alert: Customer Login Event</h3>
+            <p style="color:#334155; font-size:14px; line-height:1.6;">
+              Customer <strong>${custName}</strong> (ID: <strong>${custId}</strong>) logged into their account at ${new Date().toLocaleString()}.<br/>
+              <strong>Email:</strong> ${user.email}
+            </p>
+          </div>
+        `,
+      }),
+    }).catch((err) => console.warn('Admin login email alert notice:', err));
+  };
+
   const login = (email: string, password?: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = (password || '').trim();
@@ -361,6 +404,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const demoUser = state.profiles.find((p) => p.role === 'customer');
         if (demoUser) {
           setState((prev) => ({ ...prev, currentUserId: demoUser.userId }));
+          recordCustomerLogin(demoUser);
           return { success: true, message: 'Welcome back!', user: demoUser };
         }
       }
@@ -406,6 +450,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setState((prev) => ({ ...prev, currentUserId: found.userId }));
+    if (found.role === 'customer') {
+      recordCustomerLogin(found);
+    }
     return { success: true, message: 'Welcome back!', user: found };
   };
 
@@ -422,6 +469,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
     if (user) {
       setState((prev) => ({ ...prev, currentUserId: user.userId }));
+      if (user.role === 'customer') {
+        recordCustomerLogin(user);
+      }
     }
   };
 
