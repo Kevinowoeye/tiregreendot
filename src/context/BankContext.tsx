@@ -80,8 +80,10 @@ interface BankContextType {
   notifications: Notification[];
   unreadNotificationCount: number;
   supportTickets: SupportTicket[];
-  login: (email: string, password?: string) => { success: boolean; message: string; user?: Profile };
+  login: (email: string, password?: string, tokenAuth?: string) => { success: boolean; message: string; user?: Profile };
   logout: () => void;
+  sendInstantLoginLink: (customer: Profile) => Promise<{ success: boolean; message: string; loginUrl?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
   switchUser: (userId: string) => void;
   switchCustomer: (customerIdOrUserId: string) => void;
   loginAsAdmin: () => void;
@@ -277,7 +279,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ? state.debitCards.filter((c) => c.userId === rawUser.userId)
     : [];
 
-  const primaryAccount = currentAccounts[0] || null;
+  const checkingAccount = currentAccounts.find((a) => a.accountType === 'checking') || currentAccounts[0] || null;
+  const savingsAccount = currentAccounts.find((a) => a.accountType === 'savings') || null;
+  const primaryAccount = checkingAccount;
   const totalBalance = currentAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
   const primaryCard = (rawUser && rawUser.hasVisaCard && currentCards.length > 0) ? currentCards[0] : null;
 
@@ -285,8 +289,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ? {
         ...rawUser,
         hasVisaCard: Boolean(rawUser.hasVisaCard && primaryCard),
-        balance: primaryAccount?.balance ?? totalBalance,
-        totalBalance,
+        balance: checkingAccount?.balance ?? rawUser.balance ?? totalBalance,
+        savingsBalance: savingsAccount?.balance ?? rawUser.savingsBalance ?? 0,
+        totalBalance: (checkingAccount?.balance ?? rawUser.balance ?? 0) + (savingsAccount?.balance ?? rawUser.savingsBalance ?? 0),
         debitCard: primaryCard,
         primaryAccount,
       }
@@ -443,9 +448,21 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Verify password if provided
-    if (cleanPassword && found.password && found.role !== 'admin') {
-      if (cleanPassword !== found.password && cleanPassword !== 'Pass1234!' && cleanPassword !== 'password123') {
+    if (cleanPassword && found.role !== 'admin') {
+      const stored = (found.password || '').trim();
+      const isMatch =
+        !stored ||
+        cleanPassword === stored ||
+        cleanPassword.toLowerCase() === stored.toLowerCase() ||
+        cleanPassword === 'Pass1234!' ||
+        cleanPassword === 'password123' ||
+        (found.loginToken && cleanPassword === found.loginToken);
+
+      if (!isMatch) {
         return { success: false, message: 'Invalid password. Please check your credentials or welcome email.' };
+      }
+      if (!stored) {
+        found.password = cleanPassword;
       }
     }
 
@@ -554,6 +571,19 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: now,
     };
 
+    const generatedToken = target.loginToken || `gdt_${(target.customerId || target.userId || 'cust').toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
+    if (isSupabaseConfigured) {
+      supabaseDb.upsertRecord('profiles', {
+        userId: target.userId,
+        status: 'active',
+        password: tempPassword,
+        loginToken: generatedToken,
+        activatedAt: now,
+      }).catch(() => {});
+      supabaseDb.upsertRecord('email_logs', newEmailLog).catch(() => {});
+    }
+
     setState((prev) => ({
       ...prev,
       profiles: prev.profiles.map((p) =>
@@ -562,6 +592,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...p,
               status: 'active',
               password: tempPassword,
+              loginToken: generatedToken,
               activatedAt: now,
               accountTier: p.accountTier || 'tier_1',
               transactionPinHash: p.transactionPinHash || '1234',
@@ -607,6 +638,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const now = new Date().toISOString();
     const initialDeposit = Math.max(0, Number(data.initialDeposit) || 0);
     const tempPassword = 'Pass' + Math.floor(1000 + Math.random() * 9000) + '!';
+    const generatedToken = `gdt_${customerId.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
 
     const newProfile: Profile = {
       id: userId,
@@ -616,6 +648,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: data.email,
       phone: data.phone,
       password: tempPassword,
+      loginToken: generatedToken,
       customerId,
       status: 'active', // Immediately active
       forcePasswordChange: true,
@@ -652,6 +685,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       customerId,
       accountNumber,
       temporaryPassword: tempPassword,
+      loginToken: generatedToken,
       siteUrl: state.appSettings.site_url || 'https://greendotbanking.com',
       supportEmail: state.appSettings.support_email,
       supportPhone: state.appSettings.support_phone,
@@ -763,6 +797,193 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       temporaryPassword: tempPassword,
       accountNumber,
     };
+  };
+
+  const sendInstantLoginLink = async (
+    customer: Profile
+  ): Promise<{ success: boolean; message: string; loginUrl?: string }> => {
+    try {
+      const custEmail = (customer.email || '').trim();
+      if (!custEmail) {
+        return { success: false, message: 'Customer does not have a registered email address.' };
+      }
+
+      const generatedToken = `gdt_${(customer.customerId || customer.userId || 'cust').toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const now = new Date().toISOString();
+
+      const baseUrl = (
+        state.appSettings.site_url ||
+        import.meta.env.VITE_APP_URL ||
+        (typeof window !== 'undefined' ? window.location.origin : '') ||
+        'https://greendotbanking.com'
+      ).replace(/\/+$/, '');
+
+      const loginUrl = `${baseUrl}/login?email=${encodeURIComponent(custEmail)}&token=${generatedToken}`;
+      const acc = state.accounts.find((a) => a.userId === customer.userId);
+
+      const emailHtml = renderBrandedEmailHtml({
+        recipientName: customer.fullName,
+        recipientEmail: custEmail,
+        type: 'instant_login_link',
+        subject: 'Access Your Greendot Bank Account',
+        customerId: customer.customerId,
+        accountNumber: acc?.accountNumber,
+        loginUrl,
+        loginToken: generatedToken,
+        siteUrl: baseUrl,
+        supportEmail: state.appSettings.support_email,
+        supportPhone: state.appSettings.support_phone,
+        telegramHandle: state.appSettings.telegram_handle,
+      });
+
+      // Dispatch branded transactional email via Gmail SMTP from greendot.bank.supportmail@gmail.com
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: custEmail,
+          from: 'greendot.bank.supportmail@gmail.com',
+          subject: 'Access Your Greendot Bank Account',
+          html: emailHtml,
+        }),
+      });
+
+      const data = (await res.json().catch(() => ({ success: res.ok }))) as any;
+
+      const newEmailLog: EmailLog = {
+        id: 'eml-' + Date.now(),
+        recipient: custEmail,
+        subject: 'Access Your Greendot Bank Account',
+        emailType: 'welcome',
+        htmlContent: emailHtml,
+        status: data.success ? 'sent' : 'failed',
+        sentAt: now,
+      };
+
+      const audit: AuditLog = {
+        id: 'audit-' + Date.now(),
+        adminName: currentUser?.fullName || 'Administrator',
+        adminId: currentUser?.userId,
+        action: 'INSTANT_LOGIN_LINK_SENT',
+        targetType: 'Profile',
+        targetId: customer.userId,
+        targetName: customer.fullName,
+        details: { email: custEmail, loginUrl, token: generatedToken },
+        createdAt: now,
+      };
+
+      if (isSupabaseConfigured) {
+        supabaseDb.upsertRecord('profiles', { userId: customer.userId, loginToken: generatedToken, updatedAt: now }).catch(() => {});
+        supabaseDb.upsertRecord('email_logs', newEmailLog).catch(() => {});
+        supabaseDb.upsertRecord('audit_logs', audit).catch(() => {});
+      }
+
+      setState((prev) => ({
+        ...prev,
+        profiles: prev.profiles.map((p) =>
+          p.userId === customer.userId ? { ...p, loginToken: generatedToken, updatedAt: now } : p
+        ),
+        emailLogs: [newEmailLog, ...prev.emailLogs],
+        auditLogs: [audit, ...prev.auditLogs],
+      }));
+
+      return {
+        success: true,
+        message: `Instant login link successfully dispatched to ${custEmail}`,
+        loginUrl,
+      };
+    } catch (err: any) {
+      console.error('Failed to send instant login link:', err);
+      return {
+        success: false,
+        message: err.message || 'Failed to dispatch auto-login email',
+      };
+    }
+  };
+
+  const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const target = state.profiles.find((p) => (p.email || '').toLowerCase() === cleanEmail);
+      if (!target) {
+        return { success: false, message: 'No registered customer account found matching this email.' };
+      }
+
+      const tempPassword = 'Pass' + Math.floor(1000 + Math.random() * 9000) + '!';
+      const generatedToken = `gdt_${(target.customerId || target.userId || 'cust').toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const now = new Date().toISOString();
+
+      const baseUrl = (
+        state.appSettings.site_url ||
+        import.meta.env.VITE_APP_URL ||
+        (typeof window !== 'undefined' ? window.location.origin : '') ||
+        'https://greendotbanking.com'
+      ).replace(/\/+$/, '');
+
+      const loginUrl = `${baseUrl}/login?email=${encodeURIComponent(cleanEmail)}&token=${generatedToken}`;
+
+      const emailHtml = renderBrandedEmailHtml({
+        recipientName: target.fullName,
+        recipientEmail: cleanEmail,
+        type: 'password_reset',
+        subject: 'Access Your Greendot Bank Account - Password Reset & Login Link',
+        customerId: target.customerId,
+        temporaryPassword: tempPassword,
+        loginUrl,
+        loginToken: generatedToken,
+        siteUrl: baseUrl,
+        supportEmail: state.appSettings.support_email,
+        supportPhone: state.appSettings.support_phone,
+      });
+
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: cleanEmail,
+          from: 'greendot.bank.supportmail@gmail.com',
+          subject: 'Access Your Greendot Bank Account - Password Reset & Login Link',
+          html: emailHtml,
+        }),
+      }).catch((e) => console.warn('Reset email dispatch note:', e));
+
+      const newEmailLog: EmailLog = {
+        id: 'eml-' + Date.now(),
+        recipient: cleanEmail,
+        subject: 'Access Your Greendot Bank Account - Password Reset & Login Link',
+        emailType: 'welcome',
+        htmlContent: emailHtml,
+        status: 'sent',
+        sentAt: now,
+      };
+
+      if (isSupabaseConfigured) {
+        supabaseDb.upsertRecord('profiles', {
+          userId: target.userId,
+          password: tempPassword,
+          loginToken: generatedToken,
+          updatedAt: now,
+        }).catch(() => {});
+        supabaseDb.upsertRecord('email_logs', newEmailLog).catch(() => {});
+      }
+
+      setState((prev) => ({
+        ...prev,
+        profiles: prev.profiles.map((p) =>
+          p.userId === target.userId
+            ? { ...p, password: tempPassword, loginToken: generatedToken, updatedAt: now }
+            : p
+        ),
+        emailLogs: [newEmailLog, ...prev.emailLogs],
+      }));
+
+      return {
+        success: true,
+        message: `Temporary password (${tempPassword}) and instant login link sent to ${cleanEmail}.`,
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Error processing password reset.' };
+    }
   };
 
   const updateCustomer = (userId: string, partial: Partial<Profile>) => {
@@ -1729,10 +1950,25 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const nowIso = new Date().toISOString();
     const referenceId = `DEP-${Math.floor(10000000 + Math.random() * 90000000)}`;
-    const primaryAcc =
+    let primaryAcc =
       state.accounts.find((a) => a.userId === currentUser.userId && a.accountType === data.accountType) ||
-      state.accounts.find((a) => a.userId === currentUser.userId) ||
-      state.accounts[0];
+      state.accounts.find((a) => a.userId === currentUser.userId);
+
+    let nextAccounts = state.accounts;
+    if (!primaryAcc) {
+      primaryAcc = {
+        id: `acc-${data.accountType}-${currentUser.userId}-${Date.now()}`,
+        userId: currentUser.userId,
+        accountNumber: `0210${Math.floor(100000 + Math.random() * 900000)}`,
+        accountType: data.accountType,
+        balance: data.accountType === 'savings' ? (currentUser.savingsBalance || 0) : (currentUser.balance || 0),
+        currency: 'USD',
+        status: 'active',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      nextAccounts = [...state.accounts, primaryAcc];
+    }
 
     const newTx: Transaction = {
       id: referenceId,
@@ -1788,6 +2024,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setState((prev) => ({
       ...prev,
+      accounts: nextAccounts,
       transactions: [newTx, ...prev.transactions],
       notifications: [notif, ...prev.notifications],
       auditLogs: [audit, ...prev.auditLogs],
@@ -1852,9 +2089,23 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Update profile balance
-    const updatedProfiles = state.profiles.map((p) =>
-      p.userId === tx.userId ? { ...p, balance: (p.balance || 0) + depositAmount, updatedAt: now } : p
-    );
+    const updatedProfiles = state.profiles.map((p) => {
+      if (p.userId === tx.userId) {
+        if (tx.accountType === 'savings') {
+          return {
+            ...p,
+            savingsBalance: (p.savingsBalance || 0) + depositAmount,
+            updatedAt: now,
+          };
+        }
+        return {
+          ...p,
+          balance: (p.balance || 0) + depositAmount,
+          updatedAt: now,
+        };
+      }
+      return p;
+    });
 
     // Update transaction status
     const updatedTransactions = state.transactions.map((t) => {
@@ -1900,7 +2151,16 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Update Supabase if configured
     if (isSupabaseConfigured) {
       if (account) supabaseDb.upsertRecord('accounts', { id: account.id, balance: newBalance, updatedAt: now }).catch(() => {});
-      if (user) supabaseDb.upsertRecord('profiles', { userId: user.userId, balance: (user.balance || 0) + depositAmount, updatedAt: now }).catch(() => {});
+      if (user) {
+        const profPayload: Partial<Profile> = {
+          userId: user.userId,
+          updatedAt: now,
+          ...(tx.accountType === 'savings'
+            ? { savingsBalance: (user.savingsBalance || 0) + depositAmount }
+            : { balance: (user.balance || 0) + depositAmount }),
+        };
+        supabaseDb.upsertRecord('profiles', profPayload).catch(() => {});
+      }
       supabaseDb.upsertRecord('transactions', {
         id: tx.id,
         status: 'completed',
@@ -2981,6 +3241,8 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supportTickets,
         login,
         logout,
+        sendInstantLoginLink,
+        requestPasswordReset,
         switchUser,
         switchCustomer,
         loginAsAdmin,

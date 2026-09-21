@@ -11,6 +11,8 @@ export interface EmailRenderOptions {
     | 'credit_alert'
     | 'generic'
     | 'customer_login_alert'
+    | 'instant_login_link'
+    | 'password_reset'
     | 'admin_new_check_alert'
     | 'admin_human_support_alert'
     | 'admin_customer_login_alert'
@@ -19,6 +21,8 @@ export interface EmailRenderOptions {
     | 'admin_reply_support';
   subject: string;
   siteUrl?: string;
+  loginUrl?: string;
+  loginToken?: string;
   activationCode?: string;
   temporaryPassword?: string;
   customerId?: string;
@@ -267,6 +271,140 @@ export function renderBrandedEmailHtml(options: EmailRenderOptions): string {
           <td align="center">
             <a href="${dashboardUrl}" style="background-color: #10b981; color: #ffffff; text-decoration: none; padding: 14px 32px; font-weight: 700; font-size: 15px; border-radius: 10px; display: inline-block;">
               Go to Account Dashboard
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+  } else if (type === 'instant_login_link') {
+    headerTitle = 'Access Your Greendot Account';
+    headerSubtitle = 'Instant Direct Login';
+    const targetUrl = options.loginUrl || `${resolvedBaseUrl}/login?email=${encodeURIComponent(recipientEmail)}&token=${encodeURIComponent(options.loginToken || temporaryPassword || customerId || '')}`;
+    bodyContent = `
+      <div style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
+        Dear <strong style="color: #ffffff;">${recipientName}</strong>,
+        <br><br>
+        You have been issued a dedicated, secure one-click auto-login link for your Greendot Bank account. For your convenience and protection, this direct link bypasses temporary password prompts and connects you directly to your verified online banking dashboard.
+      </div>
+
+      <!-- Account Summary Card -->
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; margin: 20px 0; overflow: hidden;">
+        <tr>
+          <td style="padding: 16px 20px; border-bottom: 1px solid #1e293b;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Security & Account Credentials</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 14px 20px; border-bottom: 1px solid #1e293b;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-size: 13px; color: #94a3b8; width: 40%;">Customer Name:</td>
+                <td style="font-size: 13px; font-weight: 700; color: #f8fafc;">${recipientName}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 14px 20px; border-bottom: 1px solid #1e293b;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-size: 13px; color: #94a3b8; width: 40%;">Registered Email:</td>
+                <td style="font-size: 13px; font-weight: 600; color: #f8fafc;">${recipientEmail}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        ${customerId ? `
+        <tr>
+          <td style="padding: 14px 20px; border-bottom: 1px solid #1e293b;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-size: 13px; color: #94a3b8; width: 40%;">Customer ID:</td>
+                <td style="font-size: 13px; font-weight: 700; color: #10b981; font-family: monospace;">${customerId}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>` : ''}
+        ${accountNumber ? `
+        <tr>
+          <td style="padding: 14px 20px;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-size: 13px; color: #94a3b8; width: 40%;">Primary Account:</td>
+                <td style="font-size: 13px; font-weight: 700; color: #f8fafc; font-family: monospace;">${accountNumber}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>` : ''}
+      </table>
+
+      <!-- Prominent Call to Action Button: "Login to Your Account Now" -->
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0 16px;">
+        <tr>
+          <td align="center">
+            <a href="${targetUrl}" style="background-color: #10b981; background-image: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; font-weight: 700; font-size: 16px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); text-align: center; letter-spacing: -0.2px;">
+              Login to Your Account Now
+            </a>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 10px;">
+              Clicking above will open your banking dashboard immediately without requiring a temporary password.
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <div style="background-color: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px 18px; margin: 20px 0; font-size: 12px; color: #6ee7b7; line-height: 1.5;">
+        <strong>Security Tip:</strong> This encrypted access link is designated exclusively for ${recipientEmail}. Once logged in, you can configure your personalized permanent password and 4-digit transaction PIN at any time.
+      </div>
+
+      <div style="color: #64748b; font-size: 11px; line-height: 1.5; margin-top: 20px; word-break: break-all; text-align: center;">
+        Direct link: <a href="${targetUrl}" style="color: #34d399;">${targetUrl}</a>
+      </div>
+    `;
+  } else if (type === 'password_reset') {
+    headerTitle = 'Password Reset & Access';
+    headerSubtitle = 'Temporary Credentials';
+    const targetUrl = options.loginUrl || `${resolvedBaseUrl}/login?email=${encodeURIComponent(recipientEmail)}&token=${encodeURIComponent(options.loginToken || temporaryPassword || customerId || '')}`;
+    bodyContent = `
+      <div style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
+        Dear <strong style="color: #ffffff;">${recipientName}</strong>,
+        <br><br>
+        We received a request to reset your online banking credentials. We have issued a new verified temporary password and a secure instant login link for your account.
+      </div>
+
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; margin: 20px 0; overflow: hidden;">
+        <tr>
+          <td style="padding: 14px 20px; border-bottom: 1px solid #1e293b;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-size: 13px; color: #94a3b8; width: 40%;">Account Email:</td>
+                <td style="font-size: 13px; font-weight: 600; color: #f8fafc;">${recipientEmail}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        ${temporaryPassword ? `
+        <tr>
+          <td style="padding: 14px 20px;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-size: 13px; color: #94a3b8; width: 40%;">Temporary Password:</td>
+                <td>
+                  <span style="font-size: 14px; font-weight: 800; color: #fbbf24; font-family: monospace; background-color: #1e293b; border: 1px solid #475569; padding: 4px 10px; border-radius: 6px;">
+                    ${temporaryPassword}
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>` : ''}
+      </table>
+
+      <!-- Prominent CTA Button -->
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0 16px;">
+        <tr>
+          <td align="center">
+            <a href="${targetUrl}" style="background-color: #10b981; color: #ffffff; text-decoration: none; padding: 16px 36px; font-weight: 700; font-size: 16px; border-radius: 12px; display: inline-block;">
+              Login to Your Account Now
             </a>
           </td>
         </tr>

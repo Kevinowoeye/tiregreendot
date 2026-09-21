@@ -94,7 +94,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     rejectCheckDeposit,
     approveBillPayment,
     rejectBillPayment,
+    sendInstantLoginLink,
   } = useBank();
+
+  const [sendingLoginLink, setSendingLoginLink] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'customers' | 'cards' | 'transactions' | 'loans' | 'emails' | 'settings' | 'new-customer' | 'support' | 'kyc' | 'email-center' | 'announcements' | 'analytics' | 'audit-logs'
@@ -326,7 +329,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const handleApproveCheck = (txId: string) => {
     approveCheckDeposit(txId);
     confetti({ particleCount: 60, spread: 55, origin: { y: 0.6 } });
-    setMutationFeedback('✓ Check approved: First $225.00 available immediately; remaining balance scheduled to clear in 2 hours.');
+    setMutationFeedback('✓ Check approved: Full funds successfully credited to customer available balance.');
     setTimeout(() => setMutationFeedback(null), 6000);
   };
 
@@ -357,62 +360,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleCopyAutoLoginLink = async (customer: CustomerProfile) => {
-    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-    const token = customer.id || customer.customerId || '';
+    const baseUrl = (state.appSettings.site_url || import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/+$/, '');
+    const generatedToken = customer.loginToken || `gdt_${(customer.customerId || customer.userId || 'cust').toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    if (!customer.loginToken) {
+      updateCustomer(customer.userId, { loginToken: generatedToken });
+    }
     const email = customer.email || '';
-    const url = `${baseUrl}/login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const url = `${baseUrl}/login?email=${encodeURIComponent(email)}&token=${generatedToken}`;
     await copyToClipboard(url);
     const displayName = customer?.fullName || (customer as any)?.name || 'Customer';
-    setMutationFeedback(`✓ Auto-login link for ${displayName} copied to clipboard!`);
+    setMutationFeedback(`✓ Instant auto-login link for ${displayName} copied to clipboard!`);
     confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
     setTimeout(() => setMutationFeedback(null), 4000);
   };
 
   const handleSendAutoLoginEmail = async (customer: CustomerProfile) => {
-    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-    const token = customer.id || customer.customerId || '';
-    const email = customer.email || '';
-    const url = `${baseUrl}/login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
-    const custName = customer?.fullName || (customer as any)?.name || customer?.email || 'Valued Customer';
-    const emailHtml = `
-      <div style="font-family:sans-serif; padding:24px; background:#f4f9f5; border-radius:16px; border:1px solid #22c55e; max-width:600px; margin:0 auto;">
-        <h2 style="color:#0f3d1d; margin-top:0;">Your Secure Auto-Login Access Link</h2>
-        <p style="color:#334155; font-size:15px; line-height:1.6;">
-          Hello <strong>${custName}</strong>,<br/><br/>
-          You have requested or been issued a secure one-click auto-login link for your Greendot Bank account. Click the button below to sign in instantly without entering a password:
-        </p>
-        <div style="text-align:center; margin:30px 0;">
-          <a href="${url}" style="background:#10b981; color:#ffffff; padding:14px 28px; border-radius:12px; font-weight:bold; text-decoration:none; display:inline-block; font-size:15px;">
-            Access My Banking Dashboard &rarr;
-          </a>
-        </div>
-        <p style="color:#64748b; font-size:12px; word-break:break-all;">
-          Or copy and paste this link in your browser:<br/><a href="${url}" style="color:#059669;">${url}</a>
-        </p>
-      </div>
-    `;
-
     try {
-      const res = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: customer.email,
-          subject: 'Greendot Bank — Your Secure Auto-Login Link',
-          html: emailHtml,
-        }),
-      });
-      const data = await safeParseResponse(res);
-      if (data.success) {
-        setMutationFeedback(`✓ Secure auto-login link emailed successfully to ${customer.email || 'customer'}!`);
+      setSendingLoginLink(customer.userId || customer.id);
+      const res = await sendInstantLoginLink(customer);
+      if (res.success) {
+        setMutationFeedback(`✓ ${res.message}`);
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
       } else {
-        setMutationFeedback(`✗ Failed to send email: ${data.error || 'Server error'}`);
+        setMutationFeedback(`✗ Failed to dispatch login link: ${res.message}`);
       }
     } catch (err: any) {
-      setMutationFeedback(`✗ Network error sending email: ${err.message}`);
+      setMutationFeedback(`✗ Error: ${err.message}`);
+    } finally {
+      setSendingLoginLink(null);
+      setTimeout(() => setMutationFeedback(null), 5000);
     }
-    setTimeout(() => setMutationFeedback(null), 4000);
   };
 
   // Openers for customer mutation dialogs
@@ -1231,12 +1208,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </td>
 
                         <td className="py-4 px-5 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <button
                               onClick={() => setSelectedCustomer(c)}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
                             >
                               Manage
+                            </button>
+                            <button
+                              onClick={() => handleSendAutoLoginEmail(c)}
+                              disabled={sendingLoginLink === (c.userId || c.id)}
+                              className="px-2.5 py-1.5 bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/50 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                              title="Send Instant Login Link via Gmail SMTP"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              <span>{sendingLoginLink === (c.userId || c.id) ? 'Sending...' : 'Send Instant Login Link'}</span>
                             </button>
                             <button
                               onClick={() => openIssueCardModal(c)}
@@ -1359,10 +1345,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                       <button
                         onClick={() => handleSendAutoLoginEmail(selectedCustomer)}
-                        className="p-2.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 rounded-xl text-xs font-bold transition-all text-left flex flex-col gap-1 border border-cyan-600/50"
+                        disabled={sendingLoginLink === (selectedCustomer.userId || selectedCustomer.id)}
+                        className="p-2.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 rounded-xl text-xs font-bold transition-all text-left flex flex-col gap-1 border border-cyan-600/50 disabled:opacity-50"
                       >
-                        <span className="text-cyan-400">✉️ Email Auto-Login</span>
-                        <span className="text-[10px] text-cyan-300/70 font-normal">Dispatch Magic Link</span>
+                        <span className="text-cyan-400">
+                          {sendingLoginLink === (selectedCustomer.userId || selectedCustomer.id) ? '⏳ Sending Link...' : '✉️ Send Instant Login Link'}
+                        </span>
+                        <span className="text-[10px] text-cyan-300/70 font-normal">Dispatch via Gmail SMTP</span>
                       </button>
 
                       {selectedCustomer.status === 'frozen' ? (
@@ -1825,7 +1814,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           tx.category === 'mobile_deposit' || tx.description?.toLowerCase().includes('check');
                         const isPendingCheck =
                           isCheck &&
-                          (tx.checkStatus === 'pending' || (tx.status === 'pending' && tx.category === 'mobile_deposit'));
+                          (tx.checkStatus === 'pending' ||
+                            tx.checkStatus === 'pending_approval' ||
+                            tx.status === 'pending' ||
+                            tx.status === 'pending_approval');
 
                         return (
                           <tr key={tx.id} className="hover:bg-slate-800/40 transition-colors">

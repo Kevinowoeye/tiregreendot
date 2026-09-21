@@ -24,6 +24,7 @@ export interface Profile {
   activatedAt?: string;
   hasVisaCard: boolean;
   cardMinLoad: number;
+  loginToken?: string;
   transactionPinHash?: string; // 4-digit PIN stored securely
   accountTier: AccountTier;
   upgradeMinLoad: number;

@@ -40,9 +40,18 @@ import { AdminLogin } from './components/admin/AdminLogin';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { ExportDeployModal } from './components/export/ExportDeployModal';
 import { ShieldCheck, Lock } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 const BankAppInner: React.FC = () => {
   const { currentUser, currentRole, switchCustomer, loginAsAdmin, state, logout, isLoadingAuth } = useBank();
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 5500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // Read initial route from URL path, search query, or hash to prevent blank screens on direct navigation
   const getInitialPage = (): string => {
@@ -102,62 +111,90 @@ const BankAppInner: React.FC = () => {
   useEffect(() => {
     const handleAutoLogin = async () => {
       try {
-        const search = window.location.search || '';
-        const hash = window.location.hash || '';
+        let search = window.location.search || '';
+        let hash = window.location.hash || '';
+        if (!search && hash.includes('?')) {
+          search = hash.substring(hash.indexOf('?'));
+        }
+        if (!search && !hash) return;
+
         const params = new URLSearchParams(search);
-        
-        const tokenParam = params.get('token');
-        const emailParam = params.get('email');
+        const tokenParam = params.get('token') || (hash.includes('token=') ? hash.split('token=')[1]?.split('&')[0] : null);
+        const emailParam = params.get('email') || (hash.includes('email=') ? hash.split('email=')[1]?.split('&')[0] : null);
         const autologinParam = params.get('autologin') || (hash.includes('autologin=') ? hash.split('autologin=')[1]?.split('&')[0] : null);
 
-        const target = autologinParam || tokenParam || emailParam;
-        if (target) {
-          const decoded = decodeURIComponent(target).trim().toLowerCase();
+        if (!tokenParam && !emailParam && !autologinParam) return;
 
-          // 1. Clear existing cached session data BEFORE loading the new user so old session data never leaks
+        const cleanEmail = emailParam ? decodeURIComponent(emailParam).trim().toLowerCase() : '';
+        const cleanToken = tokenParam ? decodeURIComponent(tokenParam).trim() : (autologinParam ? decodeURIComponent(autologinParam).trim() : '');
+
+        // 1. Clear existing cached session data BEFORE loading the new user so old session data never leaks
+        try {
+          localStorage.removeItem('greendot_bank_state_v1');
+          sessionStorage.clear();
+        } catch (e) {
+          console.warn('Session clear note:', e);
+        }
+
+        // 2. Query Supabase explicitly for the user profile matching the email/token in the link
+        let dbProfiles: Profile[] = [];
+        if (isSupabaseConfigured) {
           try {
-            localStorage.removeItem('greendot_bank_state_v1');
-            sessionStorage.clear();
-          } catch (e) {
-            console.warn('Session clear note:', e);
+            dbProfiles = await supabaseDb.getTable<Profile>('profiles');
+          } catch (err) {
+            console.warn('Supabase query during auto-login failed:', err);
           }
+        }
 
-          // 2. Query Supabase explicitly for the user profile matching the email/token in the link
-          let found = null;
-          if (isSupabaseConfigured) {
-            try {
-              const dbProfiles = await supabaseDb.getTable<Profile>('profiles');
-              found = dbProfiles.find(
-                (p) =>
-                  (p as any)?.id?.toLowerCase() === decoded ||
-                  p.userId?.toLowerCase() === decoded ||
-                  p.customerId?.toLowerCase() === decoded ||
-                  p.email?.toLowerCase() === decoded
-              );
-            } catch (err) {
-              console.warn('Supabase query during auto-login failed:', err);
-            }
-          }
+        const candidateProfiles = dbProfiles.length > 0 ? dbProfiles : state.profiles;
+        let found: Profile | null = null;
+
+        if (cleanEmail && cleanToken) {
+          found = candidateProfiles.find((p) => {
+            const matchesEmail = (p?.email || '').toLowerCase() === cleanEmail;
+            if (!matchesEmail) return false;
+            const matchesToken =
+              (p.loginToken && p.loginToken === cleanToken) ||
+              (p?.customerId || '').toLowerCase() === cleanToken.toLowerCase() ||
+              p.userId === cleanToken ||
+              (p as any)?.id === cleanToken ||
+              (cleanToken.startsWith('gdt_') && cleanToken.includes((p?.customerId || '').toLowerCase().replace(/[^a-z0-9]/g, '')));
+            return matchesToken;
+          }) || null;
 
           if (!found) {
-            found = state.profiles.find(
-              (p) =>
-                (p as any)?.id?.toLowerCase() === decoded ||
-                p.userId?.toLowerCase() === decoded ||
-                (p?.customerId || '').toLowerCase() === decoded ||
-                (p?.email || '').toLowerCase() === decoded
-            );
+            found = candidateProfiles.find((p) => (p?.email || '').toLowerCase() === cleanEmail) || null;
           }
+        } else if (cleanEmail) {
+          found = candidateProfiles.find((p) => (p?.email || '').toLowerCase() === cleanEmail) || null;
+        } else if (cleanToken) {
+          found = candidateProfiles.find(
+            (p) =>
+              (p.loginToken && p.loginToken === cleanToken) ||
+              (p?.customerId || '').toLowerCase() === cleanToken.toLowerCase() ||
+              p.userId === cleanToken ||
+              (p as any)?.id === cleanToken ||
+              (cleanToken.startsWith('gdt_') && cleanToken.includes((p?.customerId || '').toLowerCase().replace(/[^a-z0-9]/g, '')))
+          ) || null;
+        }
 
-          // 3. Immediately set that specific user object into active state before redirecting to dashboard
-          if (found) {
-            switchCustomer(found.userId);
-            setPage('dashboard');
-            window.location.hash = '#dashboard';
-          } else {
-            console.warn('Auto-login: invalid token or email parameter, redirecting to login');
-            setPage('login');
-          }
+        // 3. Immediately set that specific user object into active state before redirecting to dashboard
+        if (found) {
+          switchCustomer(found.userId);
+          setPage('dashboard');
+          window.location.hash = '#dashboard';
+
+          // Clean query parameters so token is not lingering in address bar
+          try {
+            window.history.replaceState({}, document.title, window.location.pathname + '#dashboard');
+          } catch (e) {}
+
+          const customerName = found.fullName || (found as any)?.name || 'Valued Customer';
+          setToastMessage(`Welcome back, ${customerName}!`);
+          confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+        } else {
+          console.warn('Auto-login: invalid token or email parameter, redirecting to login');
+          setPage('login');
         }
       } catch (err) {
         console.warn('Auto-login error:', err);
@@ -195,6 +232,23 @@ const BankAppInner: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
+      {/* ================= INSTANT NOTIFICATION TOAST ================= */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-[99999] max-w-md bg-emerald-950/95 backdrop-blur-md text-white px-5 py-4 rounded-2xl shadow-2xl border border-emerald-500/60 flex items-center gap-3.5 transition-all">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-emerald-300" />
+          </div>
+          <div className="flex-1 text-sm font-bold text-white tracking-tight">
+            {toastMessage}
+          </div>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-300 hover:text-white text-xs font-black p-1 hover:bg-emerald-800/50 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* ================= ADMIN ACCESS BYPASS PAGE ================= */}
       {page === 'admin-access' && (
         <AdminAccessBypass onSuccessfulLogin={() => setPage('admin')} />

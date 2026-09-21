@@ -27,13 +27,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateHome,
   onNavigateRegister,
 }) => {
-  const { login } = useBank();
+  const { login, requestPasswordReset } = useBank();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -52,13 +54,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
         if (emailParam) {
           setEmail(emailParam.trim());
-        } else if (tokenParam) {
-          // If token is customer ID / email representation
+        } else if (tokenParam && !emailParam) {
           setEmail(decodeURIComponent(tokenParam).trim());
         }
         if (passParam) {
           setPassword(passParam.trim());
         }
+
+        // If token parameter is present, attempt seamless instant authentication
+        if (tokenParam) {
+          const userIdentifier = emailParam ? emailParam.trim() : tokenParam.trim();
+          const res = login(userIdentifier, tokenParam.trim(), tokenParam.trim());
+          if (res.success && res.user) {
+            if (onSuccess) {
+              onSuccess(res.user.role);
+            } else if (res.user.role === 'admin') {
+              handleNavigate('admin');
+            } else {
+              handleNavigate('dashboard');
+            }
+            return;
+          }
+        }
+
         if (emailParam || tokenParam) {
           setAutoFilled(true);
           // Set focus on submit button to enable instant one-click login
@@ -236,11 +254,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {resetSent ? (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
                   <div className="font-bold">Password Reset Dispatched!</div>
-                  <div>If an account matches {email}, a recovery token was logged to your inbox.</div>
+                  <div>{resetMessage || `If an account matches ${email}, a temporary password and instant login link have been dispatched to your email.`}</div>
                   <button
                     onClick={() => {
                       setIsForgotPassword(false);
                       setResetSent(false);
+                      setResetMessage(null);
                     }}
                     className="mt-2 text-emerald-700 font-bold underline block"
                   >
@@ -249,9 +268,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
               ) : (
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    setResetSent(true);
+                    if (!email) return;
+                    setResetLoading(true);
+                    setError(null);
+                    try {
+                      const res = await requestPasswordReset(email);
+                      setResetMessage(res.message);
+                      setResetSent(true);
+                    } catch (err: any) {
+                      setError(err.message || 'Failed to dispatch password reset');
+                    } finally {
+                      setResetLoading(false);
+                    }
                   }}
                   className="space-y-4"
                 >
@@ -267,9 +297,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-3.5 gradient-primary text-white font-bold text-sm rounded-xl shadow transition-all"
+                    disabled={resetLoading}
+                    className="w-full py-3.5 gradient-primary text-white font-bold text-sm rounded-xl shadow transition-all disabled:opacity-50"
                   >
-                    Send Recovery Email
+                    {resetLoading ? 'Sending Recovery Email...' : 'Send Recovery Email'}
                   </button>
                   <button
                     type="button"
