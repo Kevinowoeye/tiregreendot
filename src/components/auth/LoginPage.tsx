@@ -37,7 +37,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [autoFilled, setAutoFilled] = useState(false);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Parse URL search parameters on mount for magic auto-fill login link
+  // Parse URL search parameters on mount for magic auto-fill login link and token parameters
   useEffect(() => {
     try {
       let search = window.location.search;
@@ -48,14 +48,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const params = new URLSearchParams(search);
         const emailParam = params.get('email');
         const passParam = params.get('password');
+        const tokenParam = params.get('token');
 
         if (emailParam) {
           setEmail(emailParam.trim());
+        } else if (tokenParam) {
+          // If token is customer ID / email representation
+          setEmail(decodeURIComponent(tokenParam).trim());
         }
         if (passParam) {
           setPassword(passParam.trim());
         }
-        if (emailParam && passParam) {
+        if (emailParam || tokenParam) {
           setAutoFilled(true);
           // Set focus on submit button to enable instant one-click login
           setTimeout(() => {

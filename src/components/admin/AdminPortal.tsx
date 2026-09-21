@@ -356,7 +356,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleCopyAutoLoginLink = async (customer: CustomerProfile) => {
-    const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id || customer.customerId || '')}`;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const token = customer.id || customer.customerId || '';
+    const email = customer.email || '';
+    const url = `${baseUrl}/login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
     await copyToClipboard(url);
     const displayName = customer?.fullName || (customer as any)?.name || 'Customer';
     setMutationFeedback(`✓ Auto-login link for ${displayName} copied to clipboard!`);
@@ -365,7 +368,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleSendAutoLoginEmail = async (customer: CustomerProfile) => {
-    const url = `${window.location.origin}/#autologin=${encodeURIComponent(customer.id || customer.customerId || '')}`;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const token = customer.id || customer.customerId || '';
+    const email = customer.email || '';
+    const url = `${baseUrl}/login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
     const custName = customer?.fullName || (customer as any)?.name || customer?.email || 'Valued Customer';
     const emailHtml = `
       <div style="font-family:sans-serif; padding:24px; background:#f4f9f5; border-radius:16px; border:1px solid #22c55e; max-width:600px; margin:0 auto;">

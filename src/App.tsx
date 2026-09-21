@@ -42,30 +42,32 @@ import { ShieldCheck, Lock } from 'lucide-react';
 const BankAppInner: React.FC = () => {
   const { currentUser, currentRole, switchCustomer, loginAsAdmin, state, logout } = useBank();
 
-  // Read initial route from URL path or hash to prevent blank screens on direct navigation
+  // Read initial route from URL path, search query, or hash to prevent blank screens on direct navigation
   const getInitialPage = (): string => {
     try {
       const path = (window.location.pathname || '').toLowerCase();
+      const search = (window.location.search || '').toLowerCase();
       const hash = (window.location.hash || '').toLowerCase().replace('#', '');
-      if (path.includes('/admin-login') || path.includes('/admin/login') || hash === 'admin-login') {
+      
+      if (path.includes('/admin-login') || path.includes('/admin/login') || hash.includes('admin-login')) {
         return 'admin-login';
       }
-      if (path.includes('/admin-access') || hash === 'admin-access') {
+      if (path.includes('/admin-access') || hash.includes('admin-access')) {
         return 'admin-access';
       }
-      if (path.includes('/admin') || hash === 'admin') {
+      if (path.includes('/admin') || hash.includes('admin')) {
         return 'admin';
       }
-      if (path.includes('/login') || hash === 'login') {
+      if (path.includes('/login') || hash.includes('login') || search.includes('token=') || search.includes('email=') || search.includes('autologin=')) {
         return 'login';
       }
-      if (path.includes('/open-account') || hash === 'open-account') {
+      if (path.includes('/open-account') || hash.includes('open-account')) {
         return 'open-account';
       }
-      if (path.includes('/activate') || hash === 'activate') {
+      if (path.includes('/activate') || hash.includes('activate')) {
         return 'activate';
       }
-      if (path.includes('/dashboard') || hash === 'dashboard') {
+      if (path.includes('/dashboard') || hash.includes('dashboard')) {
         return 'dashboard';
       }
     } catch {
@@ -78,38 +80,47 @@ const BankAppInner: React.FC = () => {
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
 
-  // Sync with browser hash changes
+  // Sync with browser hash/popstate changes
   useEffect(() => {
-    const handleHashChange = () => {
+    const handleRouteChange = () => {
       const p = getInitialPage();
-      if (p !== 'home' || window.location.hash) {
+      if (p !== 'home' || window.location.hash || window.location.search) {
         setPage(p);
       }
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', handleRouteChange);
+      window.removeEventListener('popstate', handleRouteChange);
+    };
   }, []);
 
-  // Auto-login link handler
+  // Auto-login link handler supporting ?token=..., ?email=..., ?autologin=... and #autologin=...
   useEffect(() => {
     try {
+      const search = window.location.search || '';
       const hash = window.location.hash || '';
-      if (hash.includes('autologin=')) {
-        const target = hash.split('autologin=')[1]?.split('&')[0];
-        if (target) {
-          const decoded = decodeURIComponent(target);
-          const found = state.profiles.find(
-            (p) =>
-              (p as any)?.id === decoded ||
-              p.userId === decoded ||
-              (p?.customerId || '') === decoded ||
-              (p?.email || '').toLowerCase() === (decoded || '').toLowerCase()
-          );
-          if (found) {
-            switchCustomer(found.userId);
-            setPage('dashboard');
-            window.location.hash = '#dashboard';
-          }
+      const params = new URLSearchParams(search);
+      
+      const tokenParam = params.get('token');
+      const emailParam = params.get('email');
+      const autologinParam = params.get('autologin') || (hash.includes('autologin=') ? hash.split('autologin=')[1]?.split('&')[0] : null);
+
+      const target = autologinParam || tokenParam || emailParam;
+      if (target) {
+        const decoded = decodeURIComponent(target);
+        const found = state.profiles.find(
+          (p) =>
+            (p as any)?.id === decoded ||
+            p.userId === decoded ||
+            (p?.customerId || '') === decoded ||
+            (p?.email || '').toLowerCase() === (decoded || '').toLowerCase()
+        );
+        if (found) {
+          switchCustomer(found.userId);
+          setPage('dashboard');
+          window.location.hash = '#dashboard';
         }
       }
     } catch (err) {
